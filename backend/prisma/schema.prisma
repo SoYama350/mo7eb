@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+  ip        String?
+  userAgent String?
+}
+
+model User {
+  id           String          @id @default(cuid())
+  phone        String          @unique
+  passwordHash String
+  name         String
+  role         String            @default("CUSTOMER")
+  isActive     Boolean         @default(true)
+  source       String  @default("DIRECT")
+  merchantId   String?
+  merchant     Merchant?       @relation("MerchantCustomers", fields: [merchantId], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  sessions       Session[]
+  subscriptions  Subscription[]
+  payments       Payment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  appCredentials CustomerCredential[]
+  merchantAccount Merchant?
+}
+
+model Provider {
+  id             String     @id @default(cuid())
+  slug          String     @unique
+  name          String
+  logo          String?
+  primaryColor String     @default("#1e293b")
+  secondaryColor String?  @default("#f1f5f9")
+  isActive     Boolean    @default(true)
+  order         Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  packages      Package[]
+  subscriptions  Subscription[]
+  credentials    CustomerCredential[]
+}
+
+model Package {
+  id            String      @id @default(cuid())
+  providerId   String
+  provider     Provider    @relation(fields: [providerId], references: [id])
+  name         String
+  internetGB   Int
+  minutes      Int
+  price        Float
+  durationDays Int
+  reminderDays Int         @default(3)
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  subscriptions Subscription[]
+  cycles         SubscriptionCycle[]
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  userId        String
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId    String
+  provider      Provider           @relation(fields: [providerId], references: [id])
+  packageId     String
+  package       Package            @relation(fields: [packageId], references: [id])
+  phoneNumber   String
+  status         String @default("PENDING_PAYMENT")
+  startDate     DateTime?
+  renewalDate   DateTime?
+  reminderSent  Boolean            @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  payments       Payment[]
+  cycles         SubscriptionCycle[]
+  notificationRefs Notification[]
+
+  @@unique([userId, packageId, phoneNumber, status])
+}
+
+model SubscriptionCycle {
+  id             String          @id @default(cuid())
+  subscriptionId String
+  subscription  Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  packageId      String
+  package        Package         @relation(fields: [packageId], references: [id])
+  status         String
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime        @default(now())
+}
+
+model PaymentMethod {
+  id                String   @id @default(cuid())
+  name             String
+  accountIdentifier String?
+  instructions      String?
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  payments         Payment[]
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  subscriptionId String
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+  amount         Float
+  paymentMethodId String
+  paymentMethod  PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  paidFromPhone  String?
+  screenshotUrl  String?
+  status          String         @default("PENDING")
+  reviewedBy      String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([subscriptionId, status])
+}
+
+model Merchant {
+  id             String                    @id @default(cuid())
+  userId        String                    @unique
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String                    @default("")
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  customers     User[]                   @relation("MerchantCustomers")
+  obligations   MerchantPaymentObligation[]
+}
+
+model MerchantPaymentObligation {
+  id         String           @id @default(cuid())
+  merchantId String
+  merchant   Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  amount     Float
+  dueDate    DateTime
+  status      String          @default("PENDING")
+  paidAt     DateTime?
+  note       String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model CustomerCredential {
+  id             String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId    String
+  provider      Provider @relation(fields: [providerId], references: [id])
+  encrypted     String
+  iv            String
+  authTag      String
+  subtitle      String   @default("telecom app password")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, providerId])
+}
+
+model Notification {
+  id      String    @id @default(cuid())
+  userId  String?
+  user    User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    String?
+  type    String
+  title   String
+  message String
+  readAt  DateTime?
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references:  [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole String?
+  action    String
+  entityType String
+  entityId  String?
+  details    String?
+  ip         String?
+  createdAt DateTime @default(now())
+}

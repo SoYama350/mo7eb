@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.env
+backend/prisma/dev.db
+backend/uploads/screenshots/*
+!backend/uploads/screenshots/.gitkeep
+backend/uploads/screenshots/.gitkeep
+.agents_tmp/

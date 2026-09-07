@@ -1,0 +1,13 @@
+{
+  "name": "egypt-telecom-subscriptions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Egypt Telecom Subscription Management Platform — modular monolith (Express+Prisma) + React (Vite+Tailwind)",
+  "scripts": {
+    "setup": "npm install --prefix backend && npm install --prefix frontend",
+    "db:generate": "npm run db:generate --prefix backend",
+    "db:seed": "npm run db:seed --prefix backend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend"
+  }
+}
