@@ -13,7 +13,7 @@ export function Spinner({ className }: { className?: string }) {
   );
 }
 
-export function Empty({ title, hint }: { title: string; hint?: string }) {
+export function Empty({ title, hint }: { title: string; hint?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-14 text-center">
       <div className="text-4xl">🗂️</div>
@@ -67,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="pointer-events-none fixed bottom-5 left-1/2 z-100 flex -translate-x-1/2 flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-5 left-1/2 z-[100] flex -translate-x-1/2 flex-col gap-2">
         {items.map(t => (
           <div key={t.id} className={`pointer-events-auto rounded-xl px-4 py-3 text-sm font-bold text-white shadow-lg fade-up ${t.kind === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
             {t.text}
