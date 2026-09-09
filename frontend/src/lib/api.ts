@@ -19,7 +19,7 @@ export interface MerchantFinancials {
 }
 export interface AdminCustomer { id: string; name: string; phone: string; source: string; merchant?: { id: string; name: string } | null; subscription?: Subscription | null; subscriptionStatus?: string | null; subscriptionStatusLabel?: string; }
 
-const BASE = '/api/v1';
+   const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1`;
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
