@@ -13,7 +13,6 @@ import adminRoutes from './routes/admin';
 import notificationRoutes from './routes/notifications';
 import { runExpiryJob } from './jobs/expiry';
 import { requireAuth, requireRole } from './lib/auth';
-import { } from '@prisma/client';
 
 const app = express();
 
