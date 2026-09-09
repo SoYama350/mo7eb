@@ -10,7 +10,7 @@ html, body, #root { height: 100%; }
 
 body {
   font-family: 'Cairo', 'Tajawal', 'Segoe UI', system-ui, sans-serif;
-  background: linear-gradient(160deg, #eef7fb 0%, #f8fbff 45%, #eef4fa 100%;
+  background: linear-gradient(160deg, #eef7fb 0%, #f8fbff 45%, #eef4fa 100%);
   color: #0b1526;
   -webkit-font-smoothing: antialiased;
 }
@@ -18,7 +18,7 @@ body {
 * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled;:opacity-50 disabled;:pointer-events-none focus:outline-none focus:ring-2 focus:ring-brand-500/40;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-brand-500/40;
 }
 .btn-primary { @apply bg-brand-600 text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 hover:-translate-y-px; }
 .btn-outline { @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50; }
@@ -44,7 +44,7 @@ body {
 
 .section-title { @apply mb-6 text-2xl font-black text-night; }
 .stat-label { @apply text-xs font-bold text-slate-500; }
-.stat-value { @apply mt-1 text-2xl font-black text-night;; }
+.stat-value { @apply mt-1 text-2xl font-black text-night; }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
@@ -54,7 +54,7 @@ body {
 
 @keyframes pulseRing {
   0%, 100% { transform: scale(1); opacity:  .6; }
-  50% { transform: scale(1.8); opacity:  ​0; }
+  50% { transform: scale(1.8); opacity: 0; }
 }
 .pulse-dot { position: relative; }
-.pulse-dot::after { content:''; position: absolute; inset: -4px; border-radius: 9999px; background: currentColor; animation: pulseRing 1.8s ease-out infinite;; }
+.pulse-dot::after { content:''; position: absolute; inset: -4px; border-radius: 9999px; background: currentColor; animation: pulseRing 1.8s ease-out infinite; }
