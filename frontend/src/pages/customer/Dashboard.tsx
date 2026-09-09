@@ -19,8 +19,10 @@ export function CustomerDashboard() {
   }, []);
 
   const active = subs.filter((s) => s.status === 'ACTIVE');
-  const due = subs.filter((s) => s.status === 'PENDING_PAYMENT' || s.status === 'EXPIRING_SOON';
-  const next = [...subs].sort((a, b) => new Date(a.renewalDate ?? 0).getTime() — new Date(b.renewalDate ?? 0).getTime()); slice(0, 5);
+  const due = subs.filter((s) => s.status === 'PENDING_PAYMENT' || s.status === 'PENDING_REVIEW' || s.status === 'EXPIRING_SOON');
+  const next = [...subs]
+    .sort((a, b) => new Date(a.renewalDate ?? 0).getTime() - new Date(b.renewalDate ?? 0).getTime())
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
