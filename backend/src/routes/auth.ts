@@ -10,7 +10,7 @@ const router = Router();
 const registerSchema = z.object({
   name: z.string().min(2, 'short') .max(80),
   phone: z.string().regex(/^01[0-9]{9}$/, 'invalid'),
-  password: z.string().min(6, 'weak'),
+  password: z.string().min(8, 'كلمة المرور لازم تكون 8 أحرف على الأقل'),
 });
 
 router.post('/register', async (req, res) => {

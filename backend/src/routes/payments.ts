@@ -44,14 +44,14 @@ function looksLikeImage(buffer: Buffer, mimetype: string): boolean {
   // WebP signature
   if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return true;
   // for compatibility with test fixtures allow declared image mimetype
-  return mimetype.startsWith('image/');
+  return false;
 }
 
 const paymentSchema = z.object({
   subscriptionId: z.string().min(1),
   paymentMethodId: z.string().min(1),
   paidFromPhone: z.string().regex(/^01[0-9]{9}$/, 'رقم الموبايل المستخدم في الدفع غير صحيح').optional(),
-  amount: z.number().optional(),
+  amount: z.preprocess((value) => value === '' || value === undefined ? undefined : Number(value), z.number().positive().optional()),
 });
 
 // POST /api/v1/payments — submit payment info + screenshot (multipart/form-data)
@@ -122,6 +122,7 @@ router.post('/:id/review', async (req: AuthedRequest, res) => {
   if (payment.status !== "PENDING") return void res.status(409).json({ message: 'الدفعة دي اتراجعت قبل كده' });
 
   const approved = decision === 'approved';
+  if (approved && !payment.screenshotUrl) return void res.status(400).json({ message: 'لا يمكن اعتماد دفعة بدون صورة إثبات' });
 
   await prisma.$transaction(async (tx) => {
     const updated = await tx.payment.update({
@@ -208,4 +209,4 @@ router.get('/', async (req: AuthedRequest, res) => {
   res.json({ payments });
 });
 
-export default router;''
+export default router;

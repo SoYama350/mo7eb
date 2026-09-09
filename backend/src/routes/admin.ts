@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logAudit, notify, statusLabel } from '../lib/helpers';
 import { decryptCredential } from '../lib/crypto';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 router.use(requireAuth, requireRole("ADMIN"));
@@ -168,6 +169,25 @@ router.post('/subscriptions/:id/deactivate', async (req: AuthedRequest, res) => 
 });
 
 // ── Admin merchants management ─────────────────
+router.post('/merchants', async (req: AuthedRequest, res) => {
+  const parsed = z.object({
+    name: z.string().min(2).max(80),
+    phone: z.string().regex(/^01[0-9]{9}$/),
+    password: z.string().min(6).optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'بيانات غير صحيحة' });
+  const exists = await prisma.user.findUnique({ where: { phone: parsed.data.phone } });
+  if (exists) return void res.status(409).json({ message: 'رقم الموبايل مستخدم بالفعل' });
+  const passwordHash = await bcrypt.hash(parsed.data.password ?? 'password123', 10);
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({ data: { name: parsed.data.name, phone: parsed.data.phone, passwordHash, role: 'MERCHANT' } });
+    const merchant = await tx.merchant.create({ data: { userId: user.id, name: parsed.data.name } });
+    return { merchant, user };
+  });
+  await logAudit({ actor: req.user!, action: 'merchant.create', entityType: 'Merchant', entityId: result.merchant.id, details: JSON.stringify({ phone: parsed.data.phone }) });
+  res.status(201).json({ merchant: { ...result.merchant, user: { id: result.user.id, name: result.user.name, phone: result.user.phone, isActive: result.user.isActive } } });
+});
+
 router.get('/merchants', async (req, res) => {
   const merchants = await prisma.merchant.findMany({
     include: {
@@ -239,4 +259,4 @@ router.get('/credentials/:userId/decrypt/:id', async (req: AuthedRequest, res) =
   res.json({ decrypted: plaintext });
 });
 
-export default router;''
+export default router;

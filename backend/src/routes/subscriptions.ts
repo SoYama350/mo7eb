@@ -94,12 +94,17 @@ router.post('/:id/renew', async (req: AuthedRequest, res) => {
   const pendingExists = await prisma.payment.findFirst({ where: { subscriptionId: sub.id, status: "PENDING" } } );
   if (pendingExists) return void res.status(409).json({ message: 'في طلب تجديد مستني المراجعة أصلًا' });
 
+  const paymentMethodId = typeof req.body.paymentMethodId === 'string' && req.body.paymentMethodId
+    ? req.body.paymentMethodId
+    : (await prisma.paymentMethod.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }))?.id;
+  if (!paymentMethodId) return void res.status(400).json({ message: 'لا توجد وسيلة دفع متاحة' });
+
   const payment = await prisma.payment.create({
     data: {
       userId: req.user!.id,
       subscriptionId: sub.id,
       amount: sub.package.price,
-      paymentMethodId: req.body.paymentMethodId || 'instapay',
+      paymentMethodId,
       status: "PENDING",
       paidFromPhone: req.body.paidFromPhone ? String(req.body.paidFromPhone) : null,
     },
@@ -120,4 +125,4 @@ export function publicSubscription(sub: any) {
     statusLabel: statusLabel(sub.status),
     paymentStatusLabel: sub.payments?.[0] ? statusLabel(sub.payments[0].status) : null,
   };
-}''
+}

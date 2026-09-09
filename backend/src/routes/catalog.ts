@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { } from '@prisma/client';
 import { requireAuth, requireRole, AuthedRequest } from '../lib/auth';
 import { logAudit } from '../lib/helpers';
 import { z } from 'zod';
@@ -31,7 +30,7 @@ router.get('/payment-methods', async (_req, res) => {
     where: { isActive: true },
     orderBy: { sortOrder: 'asc' },
   });
-  res.json({ methods });
+  res.json({ paymentMethods: methods });
 });
 
 // ── Admin CRUD — providers ─────────────────────
@@ -124,21 +123,21 @@ const methodSchema = z.object({
 
 router.get('/admin/payment-methods', async (_req, res) => {
   const methods = await prisma.paymentMethod.findMany({ orderBy: { sortOrder: 'asc' } } );
-  res.json({ methods });
+  res.json({ paymentMethods: methods });
 });
 
 router.post('/admin/payment-methods', async (req, res) => {
   const parsed = methodSchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
   const method = await prisma.paymentMethod.create({ data: parsed.data });
-  res.json({ method });
+  res.json({ paymentMethod: method });
 });
 
 router.patch('/admin/payment-methods/:id', async (req: AuthedRequest, res) => {
   const parsed = methodSchema.partial().safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
   const method = await prisma.paymentMethod.update({ where: { id: req.params.id }, data: parsed.data });
-  res.json({ method });
+  res.json({ paymentMethod: method });
 });
 
 router.delete('/admin/payment-methods/:id', async (req: AuthedRequest, res) => {
@@ -146,4 +145,4 @@ router.delete('/admin/payment-methods/:id', async (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-export default router;''
+export default router;

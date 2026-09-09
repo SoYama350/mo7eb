@@ -2,19 +2,20 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole, AuthedRequest } from '../lib/auth';
 import { z } from 'zod';
-import { } from '@prisma/client';
-import { logAudit, notify, addDays, isExpired, isExpiringSoon } from '../lib/helpers';
+import { logAudit, notify } from '../lib/helpers';
 
 const router = Router();
 router.use(requireAuth, requireRole("MERCHANT"));
 
-function getMerchantId(req: AuthedRequest): string {
-  return req.user!.merchantId!;
+async function getMerchantId(req: AuthedRequest): Promise<string | null> {
+  const merchant = await prisma.merchant.findUnique({ where: { userId: req.user!.id }, select: { id: true } });
+  return merchant?.id ?? null;
 }
 
 // merchant financial snapshot
 router.get('/financials', async (req: AuthedRequest, res) => {
-  const merchantId = getMerchantId(req);
+  const merchantId = await getMerchantId(req);
+  if (!merchantId) return void res.status(404).json({ message: 'التاجر مش موجود' });
   const merchant = await prisma.merchant.findUnique({
     where: { id: merchantId },
     include: {
@@ -58,13 +59,18 @@ router.post('/customers', async (req: AuthedRequest, res) => {
   const parsed = customerSchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'بيانات غير صحيحة' });
   const { name, phone, providerId, packageId } = parsed.data;
-  const merchantId = getMerchantId(req);
+  const merchantId = await getMerchantId(req);
+  if (!merchantId) return void res.status(404).json({ message: 'التاجر مش موجود' });
 
   const pkg = await prisma.package.findUnique({ where: { id: packageId }, include: { provider: true } } );
   if (!pkg || !pkg.isActive || pkg.providerId !== providerId) return void res.status(400).json({ message: 'الباقة غير موجودة' });
 
   const exists = await prisma.user.findUnique({ where: { phone } });
+  if (exists && exists.source !== "MERCHANT") {
+    return void res.status(409).json({ message: 'الرقم ده مرتبط بحساب عميل مباشر' });
+  }
   if (exists && exists.source === "MERCHANT") {
+    if (exists.merchantId !== merchantId) return void res.status(403).json({ message: 'العميل تابع لتاجر آخر' });
     // idempotency: same customer+package already submitted?
     const dupSubscription = await prisma.subscription.findFirst({
       where: { userId: exists.id, packageId, status: { in: ["PENDING_PAYMENT", "PENDING_REVIEW", "ACTIVE", "EXPIRING_SOON"] } },
@@ -104,27 +110,7 @@ router.post('/customers', async (req: AuthedRequest, res) => {
   await notify({ userId: customerId!, type: 'subscription.created', title: 'التاجر سجل اشتراك ليك 🛒', message: `سجّل التاجر ${req.user!.name} اشتراك ${pkg.name}. سدد وكمل.` });
   await notify({ role: "ADMIN", type: 'merchant.submission', title: 'عميل جديد من تاجر', message: `${req.user!.name} سجّل عميل جديد (${name}).` });
   await logAudit({ actor: req.user!, action: 'merchant.customer.submit', entityType: 'Subscription', entityId: subscription.id, details: JSON.stringify({ providerId, packageId, phone }) });
-  res.status(201).json({ customer: { id: customerId!, name, phone, newUser }, subscription });
+  res.status(201).json({ customer: { id: customerId!, name, phone }, subscription, newUser });
 });
 
-// admin: create merchant  (assigns user account)
-router.post('/admin/merchants', async (req: AuthedRequest, res) => {
-  if (req.user!.role !== "ADMIN") return void res.status(403).json({ message: 'مش مسموح' });
-  const bcrypt = await import('bcryptjs');
-  const parsed = z.object({
-    name: z.string().min(2),
-    phone: z.string().regex(/^01[0-9]{9}$/),
-    password: z.string().min(6).optional(),
-  }).safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'بيانات غير صحيحة' });
-  const password = parsed.data.password ?? 'password123';
-  const passwordHash = await bcrypt.default.hash(password, 10);
-  const user = await prisma.user.create({
-    data: { name: parsed.data.name, phone: parsed.data.phone, passwordHash, role: "MERCHANT" },
-  });
-  const merchant = await prisma.merchant.create({ data: { userId: user.id, name: parsed.data.name } });
-  await logAudit({ actor: req.user!, action: 'merchant.create', entityType: 'Merchant', entityId: merchant.id, details: JSON.stringify({ phone: parsed.data.phone }) });
-  res.status(201).json({ merchant: { ...merchant, user: { id: user.id, phone: user.phone, name: user.name } } });
-});
-
-export default router;''
+export default router;
