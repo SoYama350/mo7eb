@@ -9,7 +9,9 @@ const SESSION_COOKIE = 'tsid';
 const SESSION_DAYS = 30;
 
 export function hashToken(value: string): string {
-  return crypto.createHmac('sha256', process.env.APP_SECRET || 'dev').update(value).digest('hex');
+  const secret = process.env.APP_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') throw new Error('APP_SECRET is required in production');
+  return crypto.createHmac('sha256', secret || 'dev').update(value).digest('hex');
 }
 
 export function sessionCookieName(): string { return SESSION_COOKIE; }
