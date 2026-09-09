@@ -1,11 +1,11 @@
-import { api, qs, User, Provider, Package, PaymentMethod, Subscription, Payment, Merchant, MerchantObligation, AuditLog, AppNotification, MerchantFinancials } from '../lib/api';
+import { api, qs, User, Provider, Package, PaymentMethod, Subscription, Payment, Merchant, MerchantObligation, AuditLog, AppNotification, MerchantFinancials, AdminCustomer } from '../lib/api';
 
 // Auth
 export const authApi = {
   me: () => api.get<{ user: User }>('/auth/me'),
   login: (phone: string, password: string) => api.post<{ user: User }>('/auth/login', { phone, password }),
   register: (payload: { name: string; phone: string; password: string }) => api.post<{ user: User }>('/auth/register', payload),
-  updateMe: (payload: { name?: string; phone?: string; password?: string }) => api.patch<{ user: User }>('/auth/me', payload),
+  updateMe: (payload: { name: string }) => api.patch<{ user: User }>('/auth/me', payload),
 };
 
 // Public catalog
@@ -19,13 +19,13 @@ export const catalogApi = {
 export const subscriptionApi = {
   mine: () => api.get<{ subscriptions: Subscription[] }>('/subscriptions'),
   get: (id: string) => api.get<{ subscription: Subscription }>(`/subscriptions/${id}`),
-  create: (payload: { providerId: string; packageId: string; phoneNumber: string; name?: string }) => api.post<{ subscription: Subscription }>('/subscriptions', payload),
+  create: (payload: { providerId: string; packageId: string; phoneNumber: string; name?: string; appPassword?: string }) => api.post<{ subscription: Subscription }>('/subscriptions', payload),
   renew: (id: string) => api.post<{ subscription: Subscription; payment: Payment }>(`/subscriptions/${id}/renew`),
 };
 
 export const paymentApi = {
   submit: (form: FormData) => api.upload<{ payment: Payment; updated?: boolean }>('/payments', form),
-  review: (id: string, payload: { status: string; note?: string }) => api.post<{ payment: Payment }>(`/payments/${id}/review`, payload),
+  review: (id: string, payload: { decision: 'approved' | 'rejected'; reviewNote?: string }) => api.post<{ ok: boolean; status: string }>(`/payments/${id}/review`, payload),
  mine: () => api.get<{ payments: Payment[] }>('/payments'),
 };
 
@@ -38,24 +38,26 @@ export const notificationApi = {
 export const merchantApi = {
   financials: () => api.get<MerchantFinancials>('/merchant/financials'),
   customers: () => api.get<{ customers: User[] }>('/merchant/customers'),
-  createCustomer: (payload: { name: string; phone: string; password?: string; packageId: string; providerId: string; phoneNumber: string }) => api.post<{ customer: User; subscription: Subscription; newUser: boolean }>('/merchant/customers', payload),
+  createCustomer: (payload: { name: string; phone: string; packageId: string; providerId: string }) => api.post<{ customer: User; subscription: Subscription; newUser: boolean }>('/merchant/customers', payload),
 };
 
 // Admin
 export const adminApi = {
-  dashboard: () => api.get<{ kpis: Record<string, number>; recentSubscriptions: Subscription[] }>('/admin/dashboard'),
-  customers: (query?: Record<string, string>) => api.get<{ customers: User[] }>('/admin/customers' + qs(query ?? {})),
+  dashboard: () => api.get<{ kpis: Record<string, number>; recentSubscriptions: Subscription[]; recentPayments: Payment[] }>('/admin/dashboard'),
+  customers: (query?: Record<string, string>) => api.get<{ customers: AdminCustomer[] }>('/admin/customers' + qs(query ?? {})),
   customer: (id: string) => api.get<{ customer: User }>(`/admin/customers/${id}`),
   payments: () => api.get<{ payments: Payment[] }>('/admin/payments'),
   subscriptions: () => api.get<{ subscriptions: Subscription[] }>('/admin/subscriptions'),
   activate: (id: string) => api.post<{ subscription: Subscription }>(`/admin/subscriptions/${id}/activate`),
   deactivate: (id: string) => api.post<{ subscription: Subscription }>(`/admin/subscriptions/${id}/deactivate`),
   merchants: () => api.get<{ merchants: Merchant[] }>('/admin/merchants'),
-  updateMerchant: (id: string, body: { name?: string }) => api.patch<{ merchant: Merchant }>(`/admin/merchants/${id}`, body),
+  updateMerchant: (id: string, body: { name?: string; isActive?: boolean }) => api.patch<{ ok: boolean }>(`/admin/merchants/${id}`, body),
   addObligation: (merchantId: string, body: { amount: number; dueDate: string }) => api.post<{ obligation: MerchantObligation }>(`/admin/merchants/${merchantId}/obligations`, body),
-  markObligationPaid: (id: string) => api.post<{ obligation: MerchantObligation }>(`/admin/obligations/${id}/paid`),
+  markObligationPaid: (id: string) => api.post<{ ok: boolean }>(`/admin/obligations/${id}/paid`),
   auditLogs: () => api.get<{ logs: AuditLog[] }>('/admin/audit-logs'),
   adminNotifications: () => api.get<{ notifications: AppNotification[] }>('/admin/notifications'),
+  createMerchant: (body: { name: string; phone: string; password?: string }) => api.post<{ merchant: Merchant }>('/admin/merchants', body),
+  setMerchantActive: (id: string, isActive: boolean) => api.patch<{ ok: boolean }>(`/admin/merchants/${id}`, { isActive }),
 };
 
 // Admin catalog CRUD
