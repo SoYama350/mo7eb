@@ -18,6 +18,10 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING: 'قيد الانتظار',
   PENDING_PAYMENT: 'بانتظار الدفع',
   PENDING_REVIEW: 'بانتظار المراجعة',
+  APPROVED: 'مقبولة',
+  REJECTED: 'مرفوضة',
+  PAID: 'مدفوعة',
+  OVERDUE: 'متأخرة',
   EXPIRING_SOON: 'قارب على الانتهاء',
   EXPIRED: 'منتهي',
   SUSPENDED: 'موقوف',
@@ -30,11 +34,13 @@ export function statusLabel(s: string | null | undefined): string {
 export function statusColor(s: string | null | undefined): string {
   switch (s) {
     case 'ACTIVE': return 'badge-green';
+    case 'APPROVED': case 'PAID': return 'badge-green';
     case 'PENDING': return 'badge-amber';
     case 'PENDING_PAYMENT': return 'badge-amber';
     case 'PENDING_REVIEW': return 'badge-purple';
     case 'EXPIRING_SOON': return 'badge-amber';
     case 'EXPIRED': return 'badge-red';
+    case 'REJECTED': case 'OVERDUE': return 'badge-red';
     case 'INACTIVE': case 'SUSPENDED': return 'badge-red';
     default: return 'badge-slate';
   }
