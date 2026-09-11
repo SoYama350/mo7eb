@@ -18,10 +18,43 @@ const app = express();
 
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') ?? true,
-  credentials: true,
-}));
+const corsOriginEnv = process.env.CORS_ORIGIN;
+const configuredOrigins = corsOriginEnv
+  ? corsOriginEnv.split(',').map((o) => o.trim().replace(/\/+$/, ''))
+  : [];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.trim().replace(/\/+$/, '');
+
+      // If no CORS_ORIGIN is specified or wildcard is present, allow all origins
+      if (configuredOrigins.length === 0 || configuredOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      if (configuredOrigins.includes(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      // Automatically allow any Vercel domain for mo7eb (production and preview deployments)
+      if (/^https:\/\/mo7eb[a-zA-Z0-9-]*\.vercel\.app$/.test(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow localhost for local development
+      if (/^https?:\/\/localhost(:\d+)?$/.test(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 

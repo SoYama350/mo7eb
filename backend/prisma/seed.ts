@@ -30,7 +30,12 @@ async function main() {
 
   const packages = [];
   for (const p of packageDefs) {
-    packages.push(await prisma.package.create({ data: p }));
+    const existing = await prisma.package.findFirst({ where: { providerId: p.providerId, name: p.name } });
+    if (existing) {
+      packages.push(existing);
+    } else {
+      packages.push(await prisma.package.create({ data: p }));
+    }
   }
 
   // ── Payment methods ─────────────────────

@@ -19,7 +19,28 @@ export interface MerchantFinancials {
 }
 export interface AdminCustomer { id: string; name: string; phone: string; source: string; merchant?: { id: string; name: string } | null; subscription?: Subscription | null; subscriptionStatus?: string | null; subscriptionStatusLabel?: string; }
 
-   const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1`;
+function resolveApiHost(): string {
+  let url = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (!url || url.includes('YOUR_RAILWAY_URL_HERE')) {
+    if (import.meta.env.PROD) {
+      return 'https://mo7eb-production.up.railway.app';
+    }
+    return 'http://localhost:12001';
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  return url.replace(/\/+$/, '');
+}
+
+export const API_HOST = resolveApiHost();
+const BASE = `${API_HOST}/api/v1`;
+
+export function getMediaUrl(path?: string | null): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return `${API_HOST}${path.startsWith('/') ? '' : '/'}${path}`;
+}
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
