@@ -45,6 +45,8 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -53,9 +55,7 @@ export function LoginPage() {
     setErr('');
     setBusy(true);
     try {
-      const f = e.currentTarget as HTMLFormElement;
-      const fd = new FormData(f);
-      const user = await login(String(fd.get('phone')), String(fd.get('password')));
+      const user = await login(phone, password);
       navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'MERCHANT' ? '/merchant' : '/', { replace: true });
     } catch (ex: any) {
       setErr(ex?.message ?? 'فشل تسجيل الدخول');
@@ -64,18 +64,69 @@ export function LoginPage() {
     }
   }
 
+  function fillDemo(p: string, pw: string) {
+    setPhone(p);
+    setPassword(pw);
+    setErr('');
+  }
+
   return (
     <Shell title="تسجيل الدخول" subtitle="أهلاً بعودتك — سجّل للوصول إلى لوحتك">
       <form onSubmit={onSubmit} className="space-y-4">
         {err && <div className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
         <Field label="رقم الموبايل" required>
-          <input name="phone" dir="ltr" className="input" placeholder="01xxxxxxxxx" required />
+          <input
+            name="phone"
+            dir="ltr"
+            className="input"
+            placeholder="01xxxxxxxxx"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            required
+          />
         </Field>
         <Field label="كلمة المرور" required>
-          <input name="password" type="password" dir="ltr" className="input" placeholder="••••••••" required />
+          <input
+            name="password"
+            type="password"
+            dir="ltr"
+            className="input"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </Field>
         <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول'}</button>
       </form>
+
+      <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+        <p className="mb-2 font-bold text-slate-700">حسابات تجريبية سريعة:</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="rounded-lg bg-white px-2.5 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100"
+            onClick={() => fillDemo('01000000000', 'password123')}
+          >
+            👑 أدمن
+          </button>
+          <button
+            type="button"
+            className="rounded-lg bg-white px-2.5 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100"
+            onClick={() => fillDemo('01111111111', 'password123')}
+          >
+            🛒 تاجر
+          </button>
+          <button
+            type="button"
+            className="rounded-lg bg-white px-2.5 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100"
+            onClick={() => fillDemo('01055555555', 'password123')}
+          >
+            👤 عميل
+          </button>
+        </div>
+      </div>
+
       <p className="mt-6 text-center text-sm text-slate-500">
         حساب جديد؟ <Link to="/register" className="font-black text-brand-600">سجّل الآن</Link>
       </p>

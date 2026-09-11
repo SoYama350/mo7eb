@@ -18,7 +18,7 @@ router.post('/register', async (req, res) => {
   if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message });
   const { name, phone, password } = parsed.data;
   const exists = await prisma.user.findUnique({ where: { phone } });
- if (exists) return void res.status(409).json({ message: 'exists' });
+  if (exists) return void res.status(409).json({ message: 'رقم الموبايل مسجل بالفعل' });
  const passwordHash = await bcrypt.hash(password, 10);
  const user = await prisma.user.create({ data: { name, phone, passwordHash, role: 'CUSTOMER', source: 'DIRECT' } });
  await logAudit({ actor: user, action: 'auth.register', entityType: 'User', entityId: user.id });
@@ -30,12 +30,12 @@ const loginSchema = z.object({ phone: z.string().min(1), password: z.string().mi
 
 router.post('/login', async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ message: 'bad' });
+  if (!parsed.success) return void res.status(400).json({ message: 'برجاء إدخال رقم الموبايل وكلمة المرور' });
   const { phone, password } = parsed.data;
   const user = await prisma.user.findUnique({ where: { phone }, include: { merchant: true } });
- if (!user || !user.isActive) return void res.status(401).json({ message: 'bad creds' });
- const ok = await bcrypt.compare(password, user.passwordHash);
- if (!ok) return void res.status(401).json({ message: 'bad creds' });
+  if (!user || !user.isActive) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
  await createSession(req, res, user);
  await logAudit({ actor: user, action: 'auth.login', entityType: 'User', entityId: user.id });
  res.json({ user: publicUser(user, user.merchant ?? undefined) });
