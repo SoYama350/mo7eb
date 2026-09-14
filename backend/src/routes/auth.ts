@@ -60,6 +60,18 @@ router.patch('/me', requireAuth, async (req: AuthedRequest, res) => {
  res.json({ user: publicUser(user) });
 });
 
+router.get('/points', requireAuth, async (req: AuthedRequest, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { points: true },
+  });
+  const transactions = await prisma.pointTransaction.findMany({
+    where: { userId: req.user!.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ points: user?.points ?? 0, transactions });
+});
+
 function publicUser(user: any, merchant?: any) {
  return {
    id: user.id,
@@ -67,6 +79,7 @@ function publicUser(user: any, merchant?: any) {
    name: user.name,
    role: user.role,
    isActive: user.isActive,
+   points: user.points ?? 0,
    source: user.source ?? 'DIRECT',
    merchantId: user.merchantId ?? null,
    merchant: merchant ? { id: merchant.id, name: merchant.name } : undefined,

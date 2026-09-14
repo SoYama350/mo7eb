@@ -1,6 +1,7 @@
 export type Role = 'CUSTOMER' | 'MERCHANT' | 'ADMIN';
 
-export interface User { id: string; phone: string; name: string; role: Role; isActive: boolean; source: string; merchantId: string | null; }
+export interface User { id: string; phone: string; name: string; role: Role; isActive: boolean; points: number; source: string; merchantId: string | null; }
+export interface PointTransaction { id: string; userId: string; amount: number; reason: string; createdAt: string; }
 export interface Provider { id: string; slug: string; name: string; logo: string; primaryColor: string; secondaryColor: string; isActive: boolean; order: number; packages?: Package[]; createdAt?: string; updatedAt?: string; }
 export interface Package { id: string; providerId: string; name: string; internetGB?: number | null; minutes?: number | null; price: number; durationDays: number; reminderDays?: number | null; isActive?: boolean; logo?: string | null; primaryColor?: string | null; secondaryColor?: string | null; provider?: Provider; createdAt?: string; }
 export interface PaymentMethod { id: string; name: string; accountIdentifier?: string | null; instructions?: string | null; isActive: boolean; sortOrder: number; createdAt?: string; }
@@ -17,7 +18,7 @@ export interface MerchantFinancials {
   currentDue: { amount: number; dueDate: string | null; status: string | null };
   totalDueAmount: number;
 }
-export interface AdminCustomer { id: string; name: string; phone: string; source: string; merchant?: { id: string; name: string } | null; subscription?: Subscription | null; subscriptionStatus?: string | null; subscriptionStatusLabel?: string; }
+export interface AdminCustomer { id: string; name: string; phone: string; source: string; points: number; merchant?: { id: string; name: string } | null; subscription?: Subscription | null; subscriptionStatus?: string | null; subscriptionStatusLabel?: string; }
 
 function resolveApiHost(): string {
   let url = (import.meta.env.VITE_API_URL as string | undefined)?.trim();

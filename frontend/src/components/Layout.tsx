@@ -13,6 +13,7 @@ const NAV: Record<string, NavItem[]> = {
     { to: '/providers', label: 'مزودو الخدمة', icon: '◉' },
     { to: '/subscriptions', label: 'اشتراكاتي', icon: '▣' },
     { to: '/payments', label: 'مدفوعاتي', icon: '↕' },
+    { to: '/points', label: 'نقاطي', icon: '⭐' },
     { to: '/profile', label: 'الملف الشخصي', icon: '◎' },
   ],
   MERCHANT: [
@@ -44,6 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const role = user?.role ?? 'CUSTOMER';
   const items = NAV[role] ?? [];
+  const pointsBalance = user?.points ?? 0;
 
   useEffect(() => {
     if (!user) return;
@@ -70,7 +72,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
           <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-brand-600 text-xl shadow-lg">◈</div>
           <div>
-            <p className="text-base font-black leading-tight">اتصالات مصر</p>
+            <p className="text-base font-black leading-tight">محب نت</p>
             <p className="text-xs text-sky-300">{BRAND[role]}</p>
           </div>
           <button className="btn btn-ghost mr-auto px-2 py-1 text-white lg:hidden" onClick={() => setMenuOpen(false)} aria-label="غلق القائمة">×</button>
@@ -96,6 +98,11 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-lg">⎋</span>
             </button>
           </div>
+          {role === 'CUSTOMER' && (
+            <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-sm font-black text-amber-200">
+              ⭐ {pointsBalance} نقطة
+            </div>
+          )}
         </div>
       </aside>
 
@@ -108,7 +115,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <button className="btn btn-ghost px-2 py-1" onClick={() => void openNotifications()} aria-label="الإشعارات">🔔</button>
             {unread > 0 && <span className="badge badge-red">{unread} جديد</span>}
           </div>
-          <p className="text-left text-xs font-bold text-slate-400">{new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          <div className="flex items-center gap-3">
+            {role === 'CUSTOMER' && (
+              <div className="rounded-full bg-amber-50 px-3 py-1 text-sm font-black text-amber-700">
+                ⭐ {pointsBalance} نقطة
+              </div>
+            )}
+            <p className="text-left text-xs font-bold text-slate-400">{new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          </div>
         </div>
         <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
       </main>

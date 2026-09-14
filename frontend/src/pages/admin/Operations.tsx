@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { adminApi, paymentApi } from '../../services/api';
+import { adminApi, paymentApi, pointsApi } from '../../services/api';
 import { AdminCustomer, Payment, Subscription, getMediaUrl } from '../../lib/api';
 import { Badge, Empty, Spinner, useToast } from '../../components/ui';
 import { fmtDate, fmtDateTime, fmtMoney } from '../../lib/format';
 
 export function AdminCustomers() {
+  const toast = useToast();
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -14,12 +15,30 @@ export function AdminCustomers() {
   function load() { setLoading(true); adminApi.customers({ search, status }).then((data) => setCustomers(data.customers)).catch(() => undefined).finally(() => setLoading(false)); }
   useEffect(load, [status]);
 
+  async function adjustPoints(customerId: string) {
+    const raw = window.prompt('أدخل عدد النقاط المراد إضافتها أو خصمها (مثال: 25 أو -10):', '0');
+    if (raw == null) return;
+    const amount = Number(raw);
+    if (!Number.isFinite(amount)) {
+      toast.toast('error', 'برجاء إدخال رقم صحيح');
+      return;
+    }
+    const reason = window.prompt('سبب التعديل (اختياري):', 'تعديل يدوي من الإدارة') ?? 'تعديل يدوي من الإدارة';
+    try {
+      await pointsApi.adminAdjust(customerId, { amount, reason });
+      toast.toast('success', amount >= 0 ? 'تمت إضافة النقاط بنجاح' : 'تم خصم النقاط بنجاح');
+      load();
+    } catch (error: any) {
+      toast.toast('error', error?.message ?? 'فشل تحديث نقاط العميل');
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div><h1 className="section-title mb-1">العملاء</h1><p className="text-sm text-slate-500">ابحث حسب الاسم أو الرقم، واعرف مصدر الاشتراك وحالته.</p></div>
       <div className="card flex flex-col gap-3 p-4 sm:flex-row"><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو رقم الموبايل" /><select className="input sm:max-w-xs" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">كل الحالات</option><option value="active">نشطة</option><option value="expiring">قريبة الانتهاء</option><option value="expired">منتهية</option><option value="pending">بانتظار الإجراء</option></select><button className="btn btn-primary shrink-0" onClick={load}>بحث</button></div>
       <div className="card overflow-x-auto">
-        {loading ? <Spinner /> : customers.length === 0 ? <Empty title="لا توجد نتائج" /> : <table className="w-full min-w-[900px]"><thead><tr className="border-b border-slate-100 bg-slate-50"><th className="th">العميل</th><th className="th">المصدر</th><th className="th">التاجر</th><th className="th">المزود والباقة</th><th className="th">الحالة</th><th className="th">التجديد</th></tr></thead><tbody>{customers.map((customer) => <tr className="border-b border-slate-100 last:border-0" key={customer.id}><td className="td"><p className="font-black text-night">{customer.name}</p><p className="text-xs text-slate-400" dir="ltr">{customer.phone}</p></td><td className="td"><span className="badge badge-blue">{customer.source === 'MERCHANT' ? 'تاجر' : 'مباشر'}</span></td><td className="td">{customer.merchant?.name ?? '—'}</td><td className="td"><p className="font-bold">{customer.subscription?.provider?.name ?? '—'}</p><p className="text-xs text-slate-400">{customer.subscription?.package?.name ?? 'بدون اشتراك'}</p></td><td className="td"><Badge status={customer.subscriptionStatus} /></td><td className="td">{fmtDate(customer.subscription?.renewalDate)}</td></tr>)}</tbody></table>}
+        {loading ? <Spinner /> : customers.length === 0 ? <Empty title="لا توجد نتائج" /> : <table className="w-full min-w-[1000px]"><thead><tr className="border-b border-slate-100 bg-slate-50"><th className="th">العميل</th><th className="th">المصدر</th><th className="th">التاجر</th><th className="th">المزود والباقة</th><th className="th">الحالة</th><th className="th">التجديد</th><th className="th">النقاط</th><th className="th">إجراء</th></tr></thead><tbody>{customers.map((customer) => <tr className="border-b border-slate-100 last:border-0" key={customer.id}><td className="td"><p className="font-black text-night">{customer.name}</p><p className="text-xs text-slate-400" dir="ltr">{customer.phone}</p></td><td className="td"><span className="badge badge-blue">{customer.source === 'MERCHANT' ? 'تاجر' : 'مباشر'}</span></td><td className="td">{customer.merchant?.name ?? '—'}</td><td className="td"><p className="font-bold">{customer.subscription?.provider?.name ?? '—'}</p><p className="text-xs text-slate-400">{customer.subscription?.package?.name ?? 'بدون اشتراك'}</p></td><td className="td"><Badge status={customer.subscriptionStatus} /></td><td className="td">{fmtDate(customer.subscription?.renewalDate)}</td><td className="td"><span className="font-black text-amber-600">{customer.points} نقطة</span></td><td className="td"><button className="btn btn-outline px-3 py-2 text-xs" onClick={() => void adjustPoints(customer.id)}>تعديل</button></td></tr>)}</tbody></table>}
       </div>
     </div>
   );

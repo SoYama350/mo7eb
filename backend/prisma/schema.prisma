@@ -31,6 +31,8 @@ model User {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
+  points       Int             @default(0)
+  pointTransactions PointTransaction[]
   sessions       Session[]
   subscriptions  Subscription[]
   payments       Payment[]
@@ -204,5 +206,14 @@ model AuditLog {
   entityId  String?
   details    String?
   ip         String?
+  createdAt DateTime @default(now())
+}
+
+model PointTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String
   createdAt DateTime @default(now())
 }
