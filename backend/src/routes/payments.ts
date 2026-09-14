@@ -168,12 +168,28 @@ router.post('/:id/review', async (req: AuthedRequest, res) => {
           endDate: renewalDate,
         },
       });
+      // Award loyalty points: 100 EGP = 10 points
+      const earnedPoints = Math.floor(payment.amount / 10);
+      if (earnedPoints > 0) {
+        await tx.user.update({
+          where: { id: payment.subscription.userId },
+          data: { points: { increment: earnedPoints } },
+        });
+        await tx.pointTransaction.create({
+          data: {
+            userId: payment.subscription.userId,
+            amount: earnedPoints,
+            reason: `نقاط عن سداد اشتراك باقة ${package_.name} (${payment.amount} ج)`,
+          },
+        });
+      }
+
       await tx.notification.create({
         data: {
           userId: payment.subscription.userId,
           type: 'payment.approved',
-          title: 'تم تأكيد الدفع ✅',
-          message: `باقة ${package_.name} اتفتحت. ${package_.durationDays} يوم من دلوقتي.`,
+          title: 'تم تأكيد الدفع وإضافة نقاط ✅',
+          message: `باقة ${package_.name} اتفتحت. ${package_.durationDays} يوم من دلوقتي، وتمت إضافة ${earnedPoints} نقطة لرصيدك في محب نت! ⭐ (كل 100 ج = 10 نقاط)`,
         },
       });
     } else {

@@ -80,12 +80,57 @@ router.get('/customers', async (req, res) => {
       name: c.name,
       phone: c.phone,
       source: c.source,
+      points: c.points ?? 0,
       merchant: c.merchant ?? null,
       subscription: c.subscriptions?.[0] ?? null,
       subscriptionStatus: c.subscriptions?.[0]?.status ?? null,
       subscriptionStatusLabel: c.subscriptions?.[0] ? statusLabel(c.subscriptions[0].status) : 'مفيش اشتراك',
     })),
   });
+});
+
+router.post('/customers/:id/points', async (req: AuthedRequest, res) => {
+  const amount = Number(req.body?.amount);
+  const reason = String(req.body?.reason || 'تعديل يدوي من الإدارة').trim();
+  if (isNaN(amount) || amount === 0) {
+    return void res.status(400).json({ message: 'برجاء تحديد عدد نقاط صحيح' });
+  }
+
+  const customer = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!customer) return void res.status(404).json({ message: 'العميل مش موجود' });
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({
+      where: { id: customer.id },
+      data: { points: { increment: amount } },
+    });
+    await tx.pointTransaction.create({
+      data: {
+        userId: customer.id,
+        amount,
+        reason,
+      },
+    });
+    await tx.notification.create({
+      data: {
+        userId: customer.id,
+        type: 'points.adjusted',
+        title: amount > 0 ? 'إضافة نقاط إلى رصيدك ⭐' : 'خصم نقاط من رصيدك',
+        message: `${amount > 0 ? `تمت إضافة ${amount} نقطة` : `تم خصم ${Math.abs(amount)} نقطة`} لرصيدك في محب نت: ${reason}`,
+      },
+    });
+    return u;
+  });
+
+  await logAudit({
+    actor: req.user!,
+    action: 'customer.points.adjust',
+    entityType: 'User',
+    entityId: customer.id,
+    details: JSON.stringify({ amount, reason, newPoints: updated.points }),
+  });
+
+  res.json({ ok: true, points: updated.points });
 });
 
 router.get('/customers/:id', async (req, res) => {

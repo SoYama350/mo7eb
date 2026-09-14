@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Layout } from '../components/Layout';
 import { Spinner } from '../components/ui';
 import { LoginPage, RegisterPage } from '../pages/AuthPages';
-import { CustomerDashboard, ProvidersCatalog, MySubscriptions, MyPayments, ProfilePage } from '../pages/customer/Index';
+import { CustomerDashboard, ProvidersCatalog, MySubscriptions, MyPayments, PointsPage, ProfilePage } from '../pages/customer/Index';
 import { MerchantDashboard, MerchantCustomers, NewCustomerPage } from '../pages/merchant/Index';
 import {
   AdminOverview, AdminProviders, AdminPackages, AdminPaymentMethods, AdminMerchants, AdminCustomers, AdminSubscriptions, AdminPayments, AdminNotifications, AdminAuditLogs,
@@ -30,6 +30,7 @@ export function AppRoutes() {
         <Route path="/providers" element={<ProvidersCatalog />} />
         <Route path="/subscriptions" element={<MySubscriptions />} />
         <Route path="/payments" element={<MyPayments />} />
+        <Route path="/points" element={<PointsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 

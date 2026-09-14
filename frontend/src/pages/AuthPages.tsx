@@ -12,7 +12,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
         <div className="flex items-center gap-3">
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-2xl backdrop-blur">📡</div>
           <div>
-            <p className="text-xl font-black">اتصالات مصر</p>
+            <p className="text-xl font-black">محب نت</p>
             <p className="text-sm text-white/70">منصة إدارة الاشتراكات</p>
           </div>
         </div>
@@ -30,7 +30,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
         <div className="w-full max-w-md fade-up">
           <div className="mb-8 text-center lg:hidden">
             <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-600 to-sky-500 text-2xl text-white shadow-lg">📡</div>
-            <h2 className="text-2xl font-black text-night">اتصالات مصر</h2>
+            <h2 className="text-2xl font-black text-night">محب نت</h2>
           </div>
           <h2 className="mb-1 text-2xl font-black text-night">{title}</h2>
           <p className="mb-6 text-sm text-slate-500">{subtitle}</p>
@@ -163,7 +163,7 @@ export function RegisterPage() {
   }
 
   return (
-    <Shell title="إنشاء حساب جديد" subtitle="انضم إلى منصة اتصالات مصر">
+    <Shell title="إنشاء حساب جديد" subtitle="انضم إلى منصة محب نت">
       <form onSubmit={onSubmit} className="space-y-4">
         {err && <div className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
         <Field label="الاسم بالكامل" required>

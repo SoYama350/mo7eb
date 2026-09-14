@@ -1,4 +1,4 @@
-import { api, qs, User, Provider, Package, PaymentMethod, Subscription, Payment, Merchant, MerchantObligation, AuditLog, AppNotification, MerchantFinancials, AdminCustomer } from '../lib/api';
+import { api, qs, User, Provider, Package, PaymentMethod, Subscription, Payment, Merchant, MerchantObligation, AuditLog, AppNotification, MerchantFinancials, AdminCustomer, PointTransaction } from '../lib/api';
 
 // Auth
 export const authApi = {
@@ -6,6 +6,11 @@ export const authApi = {
   login: (phone: string, password: string) => api.post<{ user: User }>('/auth/login', { phone, password }),
   register: (payload: { name: string; phone: string; password: string }) => api.post<{ user: User }>('/auth/register', payload),
   updateMe: (payload: { name: string }) => api.patch<{ user: User }>('/auth/me', payload),
+};
+
+export const pointsApi = {
+  mine: () => api.get<{ points: number; transactions: PointTransaction[] }>('/auth/points'),
+  adminAdjust: (userId: string, payload: { amount: number; reason: string }) => api.post<{ ok: boolean; points: number }>(`/admin/customers/${userId}/points`, payload),
 };
 
 // Public catalog

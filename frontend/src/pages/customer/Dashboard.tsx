@@ -31,10 +31,16 @@ export function CustomerDashboard() {
         <p className="-mt-4 text-sm text-slate-500">تابع اشتراكاتك وجدّدها في مكان واحد.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Stat label="إجمالي الاشتراكات" value={subs.length} icon="📦" />
         <Stat label="اشتراكات نشطة" value={active.length} icon="✅" />
         <Stat label="يستحق إجراء قريباً" value={due.length} icon="⏰" />
+        <Stat label="رصيد نقاط محب نت" value={`${user?.points ?? 0} نقطة`} icon="⭐" accent="text-amber-500" />
+      </div>
+
+      <div className="card border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 text-sm text-amber-900">
+        <p className="font-black">نظام نقاط محب نت</p>
+        <p className="mt-1">كل 100 جنيه تدفعها في اشتراكاتك تمنحك 10 نقاط في رصيدك! ⭐</p>
       </div>
 
       <div className="card p-5">
