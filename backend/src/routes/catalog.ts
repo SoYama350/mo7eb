@@ -54,7 +54,7 @@ router.get('/admin/providers', async (_req, res) => {
 router.post('/admin/providers', async (req: AuthedRequest, res) => {
   const parsed = providerSchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
-  const provider = await prisma.provider.create({ data: parsed.data });
+  const provider = await prisma.provider.create({ data: parsed.data as any });
   await logAudit({ actor: req.user!, action: 'provider.create', entityType: 'Provider', entityId: provider.id });
   res.status(201).json({ provider });
 });
@@ -62,7 +62,7 @@ router.post('/admin/providers', async (req: AuthedRequest, res) => {
 router.patch('/admin/providers/:id', async (req: AuthedRequest, res) => {
   const parsed = providerSchema.partial().safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
-  const provider = await prisma.provider.update({ where: { id: req.params.id }, data: parsed.data });
+  const provider = await prisma.provider.update({ where: { id: req.params.id }, data: parsed.data as any });
   await logAudit({ actor: req.user!, action: 'provider.update', entityType: 'Provider', entityId: provider.id, details: JSON.stringify(parsed.data) });
   res.json({ provider });
 });
@@ -93,7 +93,7 @@ router.get('/admin/packages', async (_req, res) => {
 router.post('/admin/packages', async (req: AuthedRequest, res) => {
   const parsed = packageSchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'بيانات غير صحيحة' });
-  const pkg = await prisma.package.create({ data: parsed.data });
+  const pkg = await prisma.package.create({ data: parsed.data as any });
   await logAudit({ actor: req.user!, action: 'package.create', entityType: 'Package', entityId: pkg.id });
   res.status(201).json({ package: pkg });
 });
@@ -101,7 +101,7 @@ router.post('/admin/packages', async (req: AuthedRequest, res) => {
 router.patch('/admin/packages/:id', async (req: AuthedRequest, res) => {
   const parsed = packageSchema.partial().safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
-  const pkg = await prisma.package.update({ where: { id: req.params.id }, data: parsed.data });
+  const pkg = await prisma.package.update({ where: { id: req.params.id }, data: parsed.data as any });
   await logAudit({ actor: req.user!, action: 'package.update', entityType: 'Package', entityId: pkg.id, details: JSON.stringify(parsed.data) });
   res.json({ package: pkg });
 });
@@ -129,14 +129,14 @@ router.get('/admin/payment-methods', async (_req, res) => {
 router.post('/admin/payment-methods', async (req, res) => {
   const parsed = methodSchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
-  const method = await prisma.paymentMethod.create({ data: parsed.data });
+  const method = await prisma.paymentMethod.create({ data: parsed.data as any });
   res.json({ paymentMethod: method });
 });
 
 router.patch('/admin/payment-methods/:id', async (req: AuthedRequest, res) => {
   const parsed = methodSchema.partial().safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: 'بيانات غير صحيحة' });
-  const method = await prisma.paymentMethod.update({ where: { id: req.params.id }, data: parsed.data });
+  const method = await prisma.paymentMethod.update({ where: { id: req.params.id }, data: parsed.data as any });
   res.json({ paymentMethod: method });
 });
 
