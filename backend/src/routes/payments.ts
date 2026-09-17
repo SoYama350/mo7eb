@@ -12,7 +12,9 @@ import { z } from 'zod';
 const router = Router();
 router.use(requireAuth);
 
-const uploadDir = path.resolve(__dirname, '../../uploads/screenshots');
+const uploadDir = process.env.VERCEL
+  ? path.join('/tmp/telecom-uploads', 'screenshots')
+  : path.resolve(__dirname, '../../uploads/screenshots');
 fs.mkdirSync(uploadDir, { recursive: true });
 
 // object-storage stand-in: local disk with randomized filenames + strict validation
