@@ -22,6 +22,7 @@ const corsOriginEnv = process.env.CORS_ORIGIN;
 const configuredOrigins = corsOriginEnv
   ? corsOriginEnv.split(',').map((o) => o.trim().replace(/\/+$/, ''))
   : [];
+const uploadsRoot = process.env.VERCEL ? '/tmp/telecom-uploads' : path.resolve(__dirname, '../../uploads');
 
 app.use(
   cors({
@@ -59,7 +60,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 // static screenshots (uploaded payment proofs)
-app.use('/uploads', express.static(path.resolve(__dirname, '../../uploads')));
+app.use('/uploads', express.static(uploadsRoot));
 
 // rate limiting on auth
 const authLimiter = rateLimit({
