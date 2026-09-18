@@ -1,11 +1,10 @@
 import crypto from 'crypto';
+import { getCredentialEncryptionKey } from '../config';
 
 const ALGORITHM = 'aes-256-gcm';
 
 function key(): Buffer {
-  const raw = process.env.CRED_ENCRYPTION_KEY;
-  if (!raw && process.env.NODE_ENV === 'production') throw new Error('CRED_ENCRYPTION_KEY is required in production');
-  return crypto.createHash('sha256').update(raw || 'dev-only-key-32-bytes!!').digest();
+  return crypto.createHash('sha256').update(getCredentialEncryptionKey()).digest();
 }
 
 export function encryptCredential(plaintext: string): { encrypted: string; iv: string; authTag: string } {
@@ -17,14 +16,4 @@ export function encryptCredential(plaintext: string): { encrypted: string; iv: s
     iv: iv.toString('base64'),
     authTag: (cipher.getAuthTag()).toString('base64'),
   };
-}
-
-export function decryptCredential(data: { encrypted: string; iv: string; authTag: string }): string {
-  try {
-    const decipher = crypto.createDecipheriv(ALGORITHM, key(), Buffer.from(data.iv, 'base64'));
-    decipher.setAuthTag(Buffer.from(data.authTag, 'base64'));
-    return Buffer.concat([decipher.update(Buffer.from(data.encrypted, 'base64')), decipher.final()]).toString('utf8');
-  } catch {
-    return '(تعذر فك التشفير)';
-  }
 }

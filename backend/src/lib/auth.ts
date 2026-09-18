@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Response, Request, NextFunction } from 'express';
 import { prisma } from './prisma';
 import { User, Session } from '@prisma/client';
+import { getAppSecret, isProductionEnvironment } from '../config';
 
 export type Role = 'CUSTOMER' | 'MERCHANT' | 'ADMIN';
 
@@ -9,30 +10,28 @@ const SESSION_COOKIE = 'tsid';
 const SESSION_DAYS = 30;
 
 export function hashToken(value: string): string {
-  const secret = process.env.APP_SECRET;
-  if (!secret && process.env.NODE_ENV === 'production') throw new Error('APP_SECRET is required in production');
-  return crypto.createHmac('sha256', secret || 'dev').update(value).digest('hex');
+  return crypto.createHmac('sha256', getAppSecret()).update(value).digest('hex');
 }
 
 export function sessionCookieName(): string { return SESSION_COOKIE; }
 
 export function setSessionCookie(res: Response, token: string) {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = isProductionEnvironment();
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    sameSite: 'lax',
     maxAge: SESSION_DAYS * 24 * 3600 * 1000,
     path: '/',
   });
 }
 
 export function clearSessionCookie(res: Response) {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = isProductionEnvironment();
   res.clearCookie(SESSION_COOKIE, {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
   });
 }
