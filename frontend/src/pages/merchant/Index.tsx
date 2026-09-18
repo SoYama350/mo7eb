@@ -92,6 +92,7 @@ export function NewCustomerPage() {
   const [busy, setBusy] = useState(false);
   const [providerId, setProviderId] = useState('');
   const [packageId, setPackageId] = useState('');
+  const [activationUrl, setActivationUrl] = useState('');
 
   useEffect(() => {
     catalogApi.providers().then((data) => setProviders(data.providers)).catch(() => undefined).finally(() => setLoading(false));
@@ -109,9 +110,10 @@ export function NewCustomerPage() {
     const form = new FormData(event.currentTarget);
     setBusy(true);
     try {
-      await merchantApi.createCustomer({ name: String(form.get('name')), phone: String(form.get('phone')), providerId, packageId });
-      toast.toast('success', 'تم تسجيل العميل وإرسال الطلب للإدارة');
-      navigate('/merchant');
+      const result = await merchantApi.createCustomer({ name: String(form.get('name')), phone: String(form.get('phone')), providerId, packageId });
+      if (result.customer.activationUrl) setActivationUrl(result.customer.activationUrl);
+      toast.toast('success', result.customer.activationUrl ? 'تم تسجيل العميل. انسخ له رابط التفعيل.' : 'تم تسجيل العميل وإرسال الطلب للإدارة');
+      if (!result.customer.activationUrl) navigate('/merchant');
     } catch (error: any) {
       toast.toast('error', error?.message ?? 'فشل تسجيل العميل');
     } finally {
@@ -148,6 +150,8 @@ export function NewCustomerPage() {
           <button className="btn btn-primary" disabled={busy || !providerId || !packageId}>{busy ? 'جاري الإرسال…' : 'إرسال للإدارة'}</button>
         </div>
       </form>
+      {activationUrl && <div className="card space-y-2 border-brand-200 bg-brand-50 p-5"><p className="font-black text-night">رابط تفعيل العميل صالح لمدة 7 أيام</p><div className="flex gap-2"><input className="input flex-1" dir="ltr" readOnly value={activationUrl} /><button className="btn btn-outline" type="button" onClick={() => { void navigator.clipboard.writeText(activationUrl); toast.toast('success', 'تم نسخ الرابط'); }}>نسخ</button></div><Link to="/merchant" className="btn btn-primary mt-2">العودة للوحة التاجر</Link></div>}
     </div>
   );
 }
+
