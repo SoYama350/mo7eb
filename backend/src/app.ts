@@ -2,7 +2,6 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
-import path from 'path';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
 import catalogRoutes from './routes/catalog';
@@ -13,16 +12,13 @@ import adminRoutes from './routes/admin';
 import notificationRoutes from './routes/notifications';
 import { runExpiryJob } from './jobs/expiry';
 import { requireAuth, requireRole } from './lib/auth';
+import { allowedOrigins } from './config';
 
 const app = express();
 
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-const corsOriginEnv = process.env.CORS_ORIGIN;
-const configuredOrigins = corsOriginEnv
-  ? corsOriginEnv.split(',').map((o) => o.trim().replace(/\/+$/, ''))
-  : [];
-const uploadsRoot = process.env.VERCEL ? '/tmp/telecom-uploads' : path.resolve(__dirname, '../../uploads');
+const configuredOrigins = allowedOrigins();
 
 app.use(
   cors({
@@ -32,25 +28,9 @@ app.use(
 
       const cleanOrigin = origin.trim().replace(/\/+$/, '');
 
-      // If no CORS_ORIGIN is specified or wildcard is present, allow all origins
-      if (configuredOrigins.length === 0 || configuredOrigins.includes('*')) {
-        return callback(null, true);
-      }
-
       if (configuredOrigins.includes(cleanOrigin)) {
         return callback(null, true);
       }
-
-      // Automatically allow any Vercel domain for mo7eb (production and preview deployments)
-      if (/^https:\/\/mo7eb[a-zA-Z0-9-]*\.vercel\.app$/.test(cleanOrigin)) {
-        return callback(null, true);
-      }
-
-      // Allow localhost for local development
-      if (/^https?:\/\/localhost(:\d+)?$/.test(cleanOrigin)) {
-        return callback(null, true);
-      }
-
       return callback(null, false);
     },
     credentials: true,
@@ -58,9 +38,6 @@ app.use(
 );
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
-
-// static screenshots (uploaded payment proofs)
-app.use('/uploads', express.static(uploadsRoot));
 
 // rate limiting on auth
 const authLimiter = rateLimit({
