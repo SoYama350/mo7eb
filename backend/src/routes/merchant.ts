@@ -3,6 +3,9 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole, AuthedRequest } from '../lib/auth';
 import { z } from 'zod';
 import { logAudit, notify } from '../lib/helpers';
+import crypto from 'crypto';
+import { getPublicAppUrl } from '../config';
+import { invitationTokenHash } from './auth';
 
 const router = Router();
 router.use(requireAuth, requireRole("MERCHANT"));
@@ -80,16 +83,22 @@ router.post('/customers', async (req: AuthedRequest, res) => {
 
   let customerId = exists?.id ?? null;
   let newUser = false;
+  const activationToken = exists ? null : crypto.randomBytes(32).toString('base64url');
+  const activationUrl = activationToken ? `${getPublicAppUrl()}/customer-activate/${activationToken}` : null;
 
   if (!exists) {
+    const temporaryPassword = crypto.randomBytes(32).toString('hex');
     const newCustomer = await prisma.user.create({
       data: {
         name,
         phone,
-        passwordHash: await import('bcryptjs').then((b) => b.default.hash(`merchant-${phone}`, 10)),
+        passwordHash: await import('bcryptjs').then((b) => b.default.hash(temporaryPassword, 12)),
         role: "CUSTOMER",
         source: "MERCHANT",
         merchantId,
+        mustSetPassword: true,
+        activationTokenHash: invitationTokenHash(activationToken!),
+        activationTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
     customerId = newCustomer.id;
@@ -110,7 +119,7 @@ router.post('/customers', async (req: AuthedRequest, res) => {
   await notify({ userId: customerId!, type: 'subscription.created', title: 'التاجر سجل اشتراك ليك 🛒', message: `سجّل التاجر ${req.user!.name} اشتراك ${pkg.name}. سدد وكمل.` });
   await notify({ role: "ADMIN", type: 'merchant.submission', title: 'عميل جديد من تاجر', message: `${req.user!.name} سجّل عميل جديد (${name}).` });
   await logAudit({ actor: req.user!, action: 'merchant.customer.submit', entityType: 'Subscription', entityId: subscription.id, details: JSON.stringify({ providerId, packageId, phone }) });
-  res.status(201).json({ customer: { id: customerId!, name, phone }, subscription, newUser });
+  res.status(201).json({ customer: { id: customerId!, name, phone, activationUrl }, subscription, newUser });
 });
 
 export default router;

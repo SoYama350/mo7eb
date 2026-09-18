@@ -5,7 +5,19 @@ import { encryptCredential } from '../src/lib/crypto';
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('password123', 10);
+  if (process.env.NODE_ENV === 'production' || process.env.SEED_DEMO_DATA !== 'true') {
+    throw new Error('Demo seed is disabled. Set SEED_DEMO_DATA=true only in a non-production environment.');
+  }
+  const seedPassword = process.env.SEED_PASSWORD;
+  const adminPhone = process.env.SEED_ADMIN_PHONE;
+  const merchantPhone = process.env.SEED_MERCHANT_PHONE;
+  const customerPhone = process.env.SEED_CUSTOMER_PHONE;
+  const merchantCustomerPhone = process.env.SEED_MERCHANT_CUSTOMER_PHONE;
+  const sampleAppPassword = process.env.SEED_APP_PASSWORD;
+  if (!seedPassword || seedPassword.length < 12 || !adminPhone || !merchantPhone || !customerPhone || !merchantCustomerPhone || !sampleAppPassword) {
+    throw new Error('Demo seed requires explicit SEED_* values.');
+  }
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
 
   // ── Providers ─────────────────────────────
   const providers = await Promise.all(
@@ -48,15 +60,15 @@ async function main() {
 
   // ── Users ──────────────────────────────
   const admin = await prisma.user.upsert({
-    where: { phone: '01000000000' },
+    where: { phone: adminPhone },
     update: {},
-    create: { phone: '01000000000', passwordHash, name: 'أدمن المنصة', role: "ADMIN" },
+    create: { phone: adminPhone, passwordHash, name: 'أدمن المنصة', role: "ADMIN" },
   });
 
   const merchantUser = await prisma.user.upsert({
-    where: { phone: '01111111111' },
+    where: { phone: merchantPhone },
     update: {},
-    create: { phone: '01111111111', passwordHash, name: 'محمود الحداد', role: "MERCHANT" },
+    create: { phone: merchantPhone, passwordHash, name: 'محمود الحداد', role: "MERCHANT" },
   });
 
   let merchant = await prisma.merchant.findUnique({ where: { userId: merchantUser.id } });
@@ -65,15 +77,15 @@ async function main() {
   }
 
   const customer = await prisma.user.upsert({
-    where: { phone: '01055555555' },
+    where: { phone: customerPhone },
     update: {},
-    create: { phone: '01055555555', passwordHash, name: 'أحمد السيد', role: "CUSTOMER" },
+    create: { phone: customerPhone, passwordHash, name: 'أحمد السيد', role: "CUSTOMER" },
   });
 
   const merchantCustomer = await prisma.user.upsert({
-    where: { phone: '01222222222' },
+    where: { phone: merchantCustomerPhone },
     update: {},
-    create: { phone: '01222222222', passwordHash, name: 'سارة محمد', role: "CUSTOMER", source: "MERCHANT", merchantId: merchant.id },
+    create: { phone: merchantCustomerPhone, passwordHash, name: 'سارة محمد', role: "CUSTOMER", source: "MERCHANT", merchantId: merchant.id },
   });
 
   // ── Sample subscription for customer ─────
@@ -84,7 +96,7 @@ async function main() {
         userId: customer.id,
         providerId: vodafone.id,
         packageId: packages[0]!.id,
-        phoneNumber: '01055555555',
+        phoneNumber: customerPhone,
         status: "ACTIVE",
         startDate: new Date(Date.now() -  10 * 24 * 3600 * 1000),
         renewalDate: new Date(Date.now() +  20 * 24 * 3600 * 1000),
@@ -98,8 +110,9 @@ async function main() {
         subscriptionId: sub.id,
         amount: packages[0]!.price,
         paymentMethodId: 'instapay',
-        paidFromPhone: '01055555555',
-        screenshotUrl: '/uploads/screenshots/sample-payment.png',
+        paidFromPhone: customerPhone,
+        screenshotUrl: null,
+        screenshotPath: null,
         status: "APPROVED",
         reviewedBy: admin.id,
         reviewedAt: new Date(),
@@ -125,7 +138,7 @@ async function main() {
   // ── Encrypted sample credential (demo — admin can decrypt on demand )
   const sampleCred = await prisma.customerCredential.findFirst({ where: { userId: customer.id } });
   if (!sampleCred) {
-    const encrypted = encryptCredential('DemoAppPass@2026');
+    const encrypted = encryptCredential(sampleAppPassword);
     await prisma.customerCredential.create({
       data: {
         userId: customer.id,
@@ -151,10 +164,7 @@ async function main() {
   }
 
   console.log('✅ Seed complete!');
-  console.log('👤 Admin:        01000000000 / password123');
-  console.log('🛒 Merchant:      01111111111 / password123');
-  console.log('👤 Customer:      01055555555 / password123');
-  console.log('👤 Merchant customer: 01222222222 / password123');
+  console.log('Seed complete. Demo credentials were supplied through SEED_* environment variables.');
 }
 
 main()

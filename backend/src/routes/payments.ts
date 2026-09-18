@@ -1,31 +1,18 @@
 import { Router, NextFunction } from 'express';
 import multer from 'multer';
-import path from 'path';
 import crypto from 'crypto';
-import fs from 'fs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, AuthedRequest } from '../lib/auth';
 import { logAudit, notify } from '../lib/helpers';
-import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { deletePrivateObject, uploadPrivateObject } from '../lib/storage';
+import { paymentForClient, paymentsForClient } from '../lib/payment-view';
 
 const router = Router();
 router.use(requireAuth);
 
-const uploadDir = path.resolve(__dirname, '../../uploads/screenshots');
-fs.mkdirSync(uploadDir, { recursive: true });
-
-// object-storage stand-in: local disk with randomized filenames + strict validation
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.png';
-    cb(null, `shot-${crypto.randomBytes(12).toString('hex')}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ['image/png', 'image/jpeg', 'image/webp'];
@@ -36,15 +23,18 @@ const upload = multer({
   },
 });
 
-function looksLikeImage(buffer: Buffer, mimetype: string): boolean {
+function looksLikeImage(buffer: Buffer): boolean {
   // PNG signature
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return true;
   // JPEG signature
   if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return true;
   // WebP signature
   if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return true;
-  // for compatibility with test fixtures allow declared image mimetype
   return false;
+}
+
+function fileExtension(mimetype: string): string {
+  return mimetype === 'image/png' ? 'png' : mimetype === 'image/webp' ? 'webp' : 'jpg';
 }
 
 const paymentSchema = z.object({
@@ -63,47 +53,66 @@ router.post('/', upload.single('screenshot'), async (req: AuthedRequest, res, ne
 
     const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId }, include: { package: true, payments: true } } );
     if (!sub) return void res.status(404).json({ message: 'الاشتراك مش موجود' });
+    const paymentMethod = await prisma.paymentMethod.findUnique({ where: { id: paymentMethodId } });
+    if (!paymentMethod || (!paymentMethod.isActive && req.user!.role !== 'ADMIN')) return void res.status(400).json({ message: 'وسيلة الدفع غير متاحة' });
     if (req.user!.role !== "ADMIN" && sub.userId !== req.user!.id) return void res.status(403).json({ message: 'مش مسموح' });
     if ((sub.status !== "PENDING_PAYMENT" && sub.status !== "PENDING_REVIEW") && req.user!.role !== "ADMIN") {
       return void res.status(400).json({ message: 'الاشتراك ده مش مستني دفع' });
     }
 
-    const screenshotUrl = req.file ? `/uploads/screenshots/${req.file.filename}` : null;
-
-    // validate file magic bytes
-    if (req.file && !looksLikeImage(fs.readFileSync(req.file.path), req.file.mimetype)) {
-      fs.unlinkSync(req.file.path);
+    if (!req.file) {
+      return void res.status(400).json({ message: 'صورة إثبات الدفع مطلوبة' });
+    }
+    if (!looksLikeImage(req.file.buffer)) {
       return void res.status(400).json({ message: 'الملف مش صورة حقيقية' });
+    }
+    const amount = parsed.data.amount ?? sub.package.price;
+    if (Math.abs(amount - sub.package.price) > 0.01) {
+      return void res.status(400).json({ message: 'مبلغ الدفع يجب أن يطابق سعر الباقة' });
     }
 
     // idempotency: a PENDING payment already exists for this subscription
     const existingPending = await prisma.payment.findFirst({ where: { subscriptionId: sub.id, status: "PENDING" } } );
     if (existingPending) {
+      const screenshotPath = `payments/${existingPending.id}/${crypto.randomBytes(16).toString('hex')}.${fileExtension(req.file.mimetype)}`;
+      await uploadPrivateObject(screenshotPath, req.file.buffer, req.file.mimetype);
       const updated = await prisma.payment.update({
         where: { id: existingPending.id },
-        data: { paymentMethodId, paidFromPhone: paidFromPhone ?? existingPending.paidFromPhone, screenshotUrl: screenshotUrl ?? existingPending.screenshotUrl, amount: parsed.data.amount ?? existingPending.amount ?? sub.package.price },
+        data: { paymentMethodId, paidFromPhone: paidFromPhone ?? existingPending.paidFromPhone, screenshotUrl: null, screenshotPath, amount },
       });
+      if (existingPending.screenshotPath) await deletePrivateObject(existingPending.screenshotPath).catch(() => undefined);
       await prisma.subscription.update({ where: { id: sub.id }, data: { status: "PENDING_REVIEW" } } );
-      return void res.json({ payment: updated, updated: true });
+      return void res.json({ payment: await paymentForClient(updated), updated: true });
     }
 
-    const payment = await prisma.payment.create({
-      data: {
-        userId: sub.userId,
-        subscriptionId: sub.id,
-        amount: parsed.data.amount ?? sub.package.price,
-        paymentMethodId,
-        paidFromPhone: paidFromPhone ?? null,
-        screenshotUrl,
-        status: "PENDING",
-      },
-    });
+    const paymentId = crypto.randomUUID();
+    const screenshotPath = `payments/${paymentId}/${crypto.randomBytes(16).toString('hex')}.${fileExtension(req.file.mimetype)}`;
+    await uploadPrivateObject(screenshotPath, req.file.buffer, req.file.mimetype);
+    let payment;
+    try {
+      payment = await prisma.payment.create({
+        data: {
+          id: paymentId,
+          userId: sub.userId,
+          subscriptionId: sub.id,
+          amount,
+          paymentMethodId,
+          paidFromPhone: paidFromPhone ?? null,
+          screenshotUrl: null,
+          screenshotPath,
+          status: "PENDING",
+        },
+      });
+    } catch (error) {
+      await deletePrivateObject(screenshotPath).catch(() => undefined);
+      throw error;
+    }
 
     await prisma.subscription.update({ where: { id: sub.id }, data: { status: "PENDING_REVIEW" } } );
     await notify({ userId: sub.userId, type: 'payment.submitted', title: 'تم إرسال إثبات الدفع ✅', message: `إثبات دفع ${sub.package.name} اتبعت للمراجعة.` });
     await notify({ role: "ADMIN", type: 'payment.pending', title: 'دفعة جديدة مستنية مراجعة', message: `في إثبات دفع جديد من ${req.user!.name}.` });
     await logAudit({ actor: req.user!, action: 'payment.submit', entityType: 'Payment', entityId: payment.id, details: JSON.stringify({ subscriptionId, amount: payment.amount }) });
-    res.status(201).json({ payment });
+    res.status(201).json({ payment: await paymentForClient(payment) });
   } catch (e:any) {
     if (e?.name === 'MulterError') return void res.status(400).json({ message: e.message.includes('File too large') ? 'الصورة أكبر من 5MB' : e.message });
     next(e); // eslint-disable-line
@@ -122,7 +131,7 @@ router.post('/:id/review', async (req: AuthedRequest, res) => {
   if (payment.status !== "PENDING") return void res.status(409).json({ message: 'الدفعة دي اتراجعت قبل كده' });
 
   const approved = decision === 'approved';
-  if (approved && !payment.screenshotUrl) return void res.status(400).json({ message: 'لا يمكن اعتماد دفعة بدون صورة إثبات' });
+  if (approved && !payment.screenshotPath && !payment.screenshotUrl) return void res.status(400).json({ message: 'لا يمكن اعتماد دفعة بدون صورة إثبات' });
 
   await prisma.$transaction(async (tx) => {
     const updated = await tx.payment.update({
@@ -222,7 +231,7 @@ router.get('/', async (req: AuthedRequest, res) => {
     include: { subscription: { include: { package: true, provider: true } }, paymentMethod: true, user: { select: { name: true, phone: true } } },
     orderBy: { createdAt: 'desc' },
   });
-  res.json({ payments });
+  res.json({ payments: await paymentsForClient(payments) });
 });
 
 export default router;

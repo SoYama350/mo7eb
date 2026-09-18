@@ -1,7 +1,8 @@
-import { FormEvent, ReactNode, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Field, useToast } from '../components/ui';
+import { authApi } from '../services/api';
 
 const BRAND_GRADIENT = 'bg-gradient-to-br from-brand-700 via-brand-600 to-sky-500';
 
@@ -45,7 +46,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,7 +56,7 @@ export function LoginPage() {
     setErr('');
     setBusy(true);
     try {
-      const user = await login(phone, password);
+      const user = await login(identifier, password);
       navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'MERCHANT' ? '/merchant' : '/', { replace: true });
     } catch (ex: any) {
       setErr(ex?.message ?? 'فشل تسجيل الدخول');
@@ -64,24 +65,18 @@ export function LoginPage() {
     }
   }
 
-  function fillDemo(p: string, pw: string) {
-    setPhone(p);
-    setPassword(pw);
-    setErr('');
-  }
-
   return (
     <Shell title="تسجيل الدخول" subtitle="أهلاً بعودتك — سجّل للوصول إلى لوحتك">
       <form onSubmit={onSubmit} className="space-y-4">
         {err && <div className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
-        <Field label="رقم الموبايل" required>
+        <Field label="البريد الإلكتروني أو رقم الموبايل" required>
           <input
-            name="phone"
+            name="identifier"
             dir="ltr"
             className="input"
-            placeholder="01xxxxxxxxx"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            placeholder="name@example.com أو 01xxxxxxxxx"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
           />
         </Field>
@@ -99,33 +94,6 @@ export function LoginPage() {
         </Field>
         <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول'}</button>
       </form>
-
-      <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-        <p className="mb-2 font-bold text-slate-700">حسابات تجريبية سريعة:</p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-lg bg-white px-2.5 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100"
-            onClick={() => fillDemo('01000000000', 'password123')}
-          >
-            👑 أدمن
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-white px-2.5 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100"
-            onClick={() => fillDemo('01111111111', 'password123')}
-          >
-            🛒 تاجر
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-white px-2.5 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100"
-            onClick={() => fillDemo('01055555555', 'password123')}
-          >
-            👤 عميل
-          </button>
-        </div>
-      </div>
 
       <p className="mt-6 text-center text-sm text-slate-500">
         حساب جديد؟ <Link to="/register" className="font-black text-brand-600">سجّل الآن</Link>
@@ -173,7 +141,7 @@ export function RegisterPage() {
           <input name="phone" dir="ltr" className="input" placeholder="01xxxxxxxxx" required />
         </Field>
         <Field label="كلمة المرور" required>
-          <input name="password" type="password" dir="ltr" className="input" placeholder="٨ أحرف على الأقل" minLength={8} required />
+           <input name="password" type="password" dir="ltr" className="input" placeholder="12 حرف على الأقل" minLength={12} required />
         </Field>
         <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الإنشاء…' : 'إنشاء الحساب'}</button>
       </form>
@@ -182,4 +150,75 @@ export function RegisterPage() {
       </p>
     </Shell>
   );
+}
+
+export function MerchantInvitePage() {
+  const { token = '' } = useParams();
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
+  const toast = useToast();
+  const [invite, setInvite] = useState<{ name: string; email: string } | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { void authApi.merchantInvitation(token).then((data) => setInvite(data.invitation)).catch((error: any) => setErr(error?.message ?? 'الدعوة غير صالحة')); }, [token]);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    setErr('');
+    try {
+      const data = await authApi.acceptMerchantInvitation(token, { name: String(form.get('name')), phone: String(form.get('phone')), password: String(form.get('password')) });
+      setUser(data.user);
+      toast.toast('success', 'تم تفعيل حساب التاجر');
+      navigate('/merchant', { replace: true });
+    } catch (error: any) {
+      setErr(error?.message ?? 'تعذر تفعيل الدعوة');
+    } finally { setBusy(false); }
+  }
+
+  return <Shell title="تفعيل حساب التاجر" subtitle={invite ? `الدعوة موجهة إلى ${invite.email}` : 'جارٍ التحقق من الدعوة'}>
+    {err && <div className="mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
+    {invite && <form onSubmit={onSubmit} className="space-y-4">
+      <Field label="اسم التاجر" required><input name="name" className="input" defaultValue={invite.name} minLength={2} required /></Field>
+      <Field label="رقم الموبايل" required><input name="phone" dir="ltr" className="input" placeholder="01xxxxxxxxx" pattern="01[0-9]{9}" required /></Field>
+      <Field label="كلمة المرور" required><input name="password" type="password" dir="ltr" className="input" minLength={12} placeholder="12 حرف على الأقل" required /></Field>
+      <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري التفعيل…' : 'تفعيل الحساب'}</button>
+    </form>}
+  </Shell>;
+}
+
+export function CustomerActivatePage() {
+  const { token = '' } = useParams();
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
+  const toast = useToast();
+  const [customer, setCustomer] = useState<{ name: string; phone: string } | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { void authApi.customerActivation(token).then((data) => setCustomer(data.customer)).catch((error: any) => setErr(error?.message ?? 'رابط التفعيل غير صالح')); }, [token]);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setErr('');
+    try {
+      const data = await authApi.acceptCustomerActivation(token, String(new FormData(event.currentTarget).get('password')));
+      setUser(data.user);
+      toast.toast('success', 'تم تفعيل حسابك');
+      navigate('/', { replace: true });
+    } catch (error: any) {
+      setErr(error?.message ?? 'تعذر تفعيل الحساب');
+    } finally { setBusy(false); }
+  }
+
+  return <Shell title="تفعيل حساب العميل" subtitle={customer ? `مرحبًا ${customer.name} — رقمك ${customer.phone}` : 'جارٍ التحقق من رابط التفعيل'}>
+    {err && <div className="mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
+    {customer && <form onSubmit={onSubmit} className="space-y-4">
+      <Field label="كلمة المرور الجديدة" required><input name="password" type="password" dir="ltr" className="input" minLength={12} placeholder="12 حرف على الأقل" required /></Field>
+      <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري التفعيل…' : 'تفعيل الحساب'}</button>
+    </form>}
+  </Shell>;
 }

@@ -4,8 +4,8 @@ import { api, User } from '../lib/api';
 interface AuthCtx {
   user: User | null;
   loading: boolean;
-  login: (phone: string, password: string) => Promise<User>;
-  register: (payload: { name: string; phone: string; password: string }) => Promise<User>;
+  login: (identifier: string, password: string) => Promise<User>;
+  register: (payload: { name: string; phone: string; password: string; email?: string }) => Promise<User>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setUser: (u: User | null) => void;
@@ -30,13 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const login = async (phone: string, password: string) => {
-    const data = await api.post<{ user: User }>('/auth/login', { phone, password });
+  const login = async (identifier: string, password: string) => {
+    const data = await api.post<{ user: User }>('/auth/login', { identifier, password });
     setUser(data.user);
     return data.user;
   };
 
-  const register = async (payload: { name: string; phone: string; password: string }) => {
+  const register = async (payload: { name: string; phone: string; password: string; email?: string }) => {
     const data = await api.post<{ user: User }>('/auth/register', payload);
     setUser(data.user);
     return data.user;
@@ -59,3 +59,4 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+

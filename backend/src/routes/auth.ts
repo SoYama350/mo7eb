@@ -4,35 +4,113 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, createSession, clearSessionCookie, AuthedRequest } from '../lib/auth';
 import { logAudit } from '../lib/helpers';
+import crypto from 'crypto';
+
+function hashInvitationToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export function invitationTokenHash(token: string): string {
+  return hashInvitationToken(token);
+}
 
 const router = Router();
+
+router.get('/merchant-invitations/:token', async (req, res) => {
+  const invitation = await prisma.merchantInvitation.findFirst({
+    where: { tokenHash: hashInvitationToken(req.params.token), usedAt: null, expiresAt: { gt: new Date() } },
+    select: { name: true, email: true, expiresAt: true },
+  });
+  if (!invitation) return void res.status(404).json({ message: 'الدعوة غير صالحة أو انتهت' });
+  res.json({ invitation });
+});
+
+router.post('/merchant-invitations/:token/accept', async (req, res) => {
+  const parsed = z.object({
+    name: z.string().min(2).max(80),
+    phone: z.string().regex(/^01[0-9]{9}$/),
+    password: z.string().min(12),
+  }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'الاسم ورقم الموبايل وكلمة مرور قوية مطلوبة' });
+
+  const tokenHash = hashInvitationToken(req.params.token);
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const invitation = await tx.merchantInvitation.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } } });
+      if (!invitation) throw new Error('INVITATION_INVALID');
+      const exists = await tx.user.findFirst({ where: { OR: [{ phone: parsed.data.phone }, { email: invitation.email }] } });
+      if (exists) throw new Error('ACCOUNT_EXISTS');
+      const claimed = await tx.merchantInvitation.updateMany({ where: { id: invitation.id, usedAt: null }, data: { usedAt: new Date() } });
+      if (claimed.count !== 1) throw new Error('INVITATION_USED');
+      const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+      const user = await tx.user.create({ data: { name: parsed.data.name, phone: parsed.data.phone, email: invitation.email, passwordHash, role: 'MERCHANT' } });
+      await tx.merchant.create({ data: { userId: user.id, name: parsed.data.name } });
+      return user;
+    });
+    await createSession(req, res, result);
+    res.status(201).json({ user: publicUser(result) });
+  } catch (error: any) {
+    if (error?.message === 'ACCOUNT_EXISTS') return void res.status(409).json({ message: 'الحساب مستخدم بالفعل' });
+    if (error?.message === 'INVITATION_USED') return void res.status(409).json({ message: 'الدعوة استُخدمت بالفعل' });
+    if (error?.message === 'INVITATION_INVALID') return void res.status(410).json({ message: 'الدعوة غير صالحة أو انتهت' });
+    throw error;
+  }
+});
+
+router.get('/customer-activation/:token', async (req, res) => {
+  const user = await prisma.user.findFirst({
+    where: { activationTokenHash: hashInvitationToken(req.params.token), mustSetPassword: true, activationTokenExpiresAt: { gt: new Date() } },
+    select: { name: true, phone: true, activationTokenExpiresAt: true },
+  });
+  if (!user) return void res.status(404).json({ message: 'رابط التفعيل غير صالح أو انتهت صلاحيته' });
+  res.json({ customer: user });
+});
+
+router.post('/customer-activation/:token/accept', async (req, res) => {
+  const parsed = z.object({ password: z.string().min(12) }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'كلمة المرور لازم تكون 12 حرف على الأقل' });
+  const tokenHash = hashInvitationToken(req.params.token);
+  const user = await prisma.user.findFirst({ where: { activationTokenHash: tokenHash, mustSetPassword: true, activationTokenExpiresAt: { gt: new Date() } } });
+  if (!user) return void res.status(410).json({ message: 'رابط التفعيل غير صالح أو انتهت صلاحيته' });
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const updated = await prisma.user.updateMany({
+    where: { id: user.id, activationTokenHash: tokenHash, mustSetPassword: true },
+    data: { passwordHash, mustSetPassword: false, activationTokenHash: null, activationTokenExpiresAt: null },
+  });
+  if (updated.count !== 1) return void res.status(409).json({ message: 'رابط التفعيل استُخدم بالفعل' });
+  const activated = { ...user, passwordHash, mustSetPassword: false };
+  await createSession(req, res, activated);
+  res.status(201).json({ user: publicUser(activated) });
+});
 
 const registerSchema = z.object({
   name: z.string().min(2, 'short') .max(80),
   phone: z.string().regex(/^01[0-9]{9}$/, 'invalid'),
-  password: z.string().min(8, 'كلمة المرور لازم تكون 8 أحرف على الأقل'),
+  password: z.string().min(12, 'كلمة المرور لازم تكون 12 حرف على الأقل'),
+  email: z.string().email().optional(),
 });
 
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message });
-  const { name, phone, password } = parsed.data;
-  const exists = await prisma.user.findUnique({ where: { phone } });
+   const { name, phone, password, email } = parsed.data;
+   const exists = await prisma.user.findFirst({ where: { OR: [{ phone }, ...(email ? [{ email }] : [])] } });
   if (exists) return void res.status(409).json({ message: 'رقم الموبايل مسجل بالفعل' });
- const passwordHash = await bcrypt.hash(password, 10);
- const user = await prisma.user.create({ data: { name, phone, passwordHash, role: 'CUSTOMER', source: 'DIRECT' } });
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await prisma.user.create({ data: { name, phone, email, passwordHash, role: 'CUSTOMER', source: 'DIRECT' } });
  await logAudit({ actor: user, action: 'auth.register', entityType: 'User', entityId: user.id });
  await createSession(req, res, user);
  res.status(201).json({ user: publicUser(user) });
 });
 
-const loginSchema = z.object({ phone: z.string().min(1), password: z.string().min(1) });
+const loginSchema = z.object({ identifier: z.string().min(1).optional(), phone: z.string().min(1).optional(), password: z.string().min(1) }).refine((data) => data.identifier || data.phone, { message: 'برجاء إدخال البريد أو رقم الموبايل' });
 
 router.post('/login', async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ message: 'برجاء إدخال رقم الموبايل وكلمة المرور' });
-  const { phone, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { phone }, include: { merchant: true } });
+  if (!parsed.success) return void res.status(400).json({ message: 'برجاء إدخال البريد أو رقم الموبايل وكلمة المرور' });
+  const identifier = parsed.data.identifier ?? parsed.data.phone!;
+  const { password } = parsed.data;
+  const user = await prisma.user.findFirst({ where: { OR: [{ phone: identifier }, { email: identifier }] }, include: { merchant: true } });
   if (!user || !user.isActive) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });

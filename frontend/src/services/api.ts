@@ -3,8 +3,12 @@ import { api, qs, User, Provider, Package, PaymentMethod, Subscription, Payment,
 // Auth
 export const authApi = {
   me: () => api.get<{ user: User }>('/auth/me'),
-  login: (phone: string, password: string) => api.post<{ user: User }>('/auth/login', { phone, password }),
-  register: (payload: { name: string; phone: string; password: string }) => api.post<{ user: User }>('/auth/register', payload),
+  login: (identifier: string, password: string) => api.post<{ user: User }>('/auth/login', { identifier, password }),
+  register: (payload: { name: string; phone: string; password: string; email?: string }) => api.post<{ user: User }>('/auth/register', payload),
+  merchantInvitation: (token: string) => api.get<{ invitation: { name: string; email: string; expiresAt: string } }>(`/auth/merchant-invitations/${encodeURIComponent(token)}`),
+  acceptMerchantInvitation: (token: string, payload: { name: string; phone: string; password: string }) => api.post<{ user: User }>(`/auth/merchant-invitations/${encodeURIComponent(token)}/accept`, payload),
+  customerActivation: (token: string) => api.get<{ customer: { name: string; phone: string; activationTokenExpiresAt: string } }>(`/auth/customer-activation/${encodeURIComponent(token)}`),
+  acceptCustomerActivation: (token: string, password: string) => api.post<{ user: User }>(`/auth/customer-activation/${encodeURIComponent(token)}/accept`, { password }),
   updateMe: (payload: { name: string }) => api.patch<{ user: User }>('/auth/me', payload),
 };
 
@@ -43,7 +47,7 @@ export const notificationApi = {
 export const merchantApi = {
   financials: () => api.get<MerchantFinancials>('/merchant/financials'),
   customers: () => api.get<{ customers: User[] }>('/merchant/customers'),
-  createCustomer: (payload: { name: string; phone: string; packageId: string; providerId: string }) => api.post<{ customer: User; subscription: Subscription; newUser: boolean }>('/merchant/customers', payload),
+  createCustomer: (payload: { name: string; phone: string; packageId: string; providerId: string }) => api.post<{ customer: User & { activationUrl?: string | null }; subscription: Subscription; newUser: boolean }>('/merchant/customers', payload),
 };
 
 // Admin
@@ -61,7 +65,7 @@ export const adminApi = {
   markObligationPaid: (id: string) => api.post<{ ok: boolean }>(`/admin/obligations/${id}/paid`),
   auditLogs: () => api.get<{ logs: AuditLog[] }>('/admin/audit-logs'),
   adminNotifications: () => api.get<{ notifications: AppNotification[] }>('/admin/notifications'),
-  createMerchant: (body: { name: string; phone: string; password?: string }) => api.post<{ merchant: Merchant }>('/admin/merchants', body),
+  createMerchant: (body: { name: string; email: string }) => api.post<{ invitation: { id: string; name: string; email: string; expiresAt: string; inviteUrl: string } }>('/admin/merchants', body),
   setMerchantActive: (id: string, isActive: boolean) => api.patch<{ ok: boolean }>(`/admin/merchants/${id}`, { isActive }),
 };
 
@@ -80,3 +84,4 @@ export const adminCatalogApi = {
   updatePaymentMethod: (id: string, body: Partial<PaymentMethod>) => api.patch<{ paymentMethod: PaymentMethod }>(`/admin/payment-methods/${id}`, body),
   deletePaymentMethod: (id: string) => api.del<{ ok: boolean }>(`/admin/payment-methods/${id}`),
 };
+

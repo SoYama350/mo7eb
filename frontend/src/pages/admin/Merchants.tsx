@@ -11,6 +11,7 @@ export function AdminMerchants() {
   const [merchants, setMerchants] = useState<MerchantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
+  const [inviteUrl, setInviteUrl] = useState('');
 
   function load() { adminApi.merchants().then((data) => setMerchants(data.merchants as MerchantRow[])).catch(() => undefined).finally(() => setLoading(false)); }
   useEffect(load, []);
@@ -19,7 +20,7 @@ export function AdminMerchants() {
     event.preventDefault();
     const target = event.currentTarget;
     const form = new FormData(target);
-    try { await adminApi.createMerchant({ name: String(form.get('name')), phone: String(form.get('phone')), password: String(form.get('password') || '') || undefined }); target.reset(); toast.toast('success', 'تم إنشاء حساب التاجر'); load(); }
+    try { const result = await adminApi.createMerchant({ name: String(form.get('name')), email: String(form.get('email')) }); setInviteUrl(result.invitation.inviteUrl); target.reset(); toast.toast('success', 'تم إنشاء دعوة التاجر'); load(); }
     catch (error: any) { toast.toast('error', error?.message ?? 'فشل إنشاء التاجر'); }
   }
 
@@ -31,13 +32,13 @@ export function AdminMerchants() {
   if (loading) return <Spinner />;
   return (
     <div className="space-y-6">
-      <div><h1 className="section-title mb-1">التجار</h1><p className="text-sm text-slate-500">أنشئ الحسابات، تابع عدد العملاء، وأدر المستحقات المالية.</p></div>
-      <form className="card grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4" onSubmit={create}>
+      <div><h1 className="section-title mb-1">التجار</h1><p className="text-sm text-slate-500">أرسل دعوة آمنة للتاجر، تابع عدد العملاء، وأدر المستحقات المالية.</p></div>
+      <form className="card grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3" onSubmit={create}>
         <Field label="اسم التاجر" required><input className="input" name="name" placeholder="محمود الحداد" required /></Field>
-        <Field label="رقم الدخول" required><input className="input" name="phone" dir="ltr" placeholder="01xxxxxxxxx" pattern="01[0-9]{9}" required /></Field>
-        <Field label="كلمة المرور"><input className="input" name="password" type="password" minLength={6} placeholder="افتراضي: password123" /></Field>
+        <Field label="البريد الإلكتروني" required><input className="input" name="email" type="email" dir="ltr" placeholder="merchant@example.com" required /></Field>
         <div className="flex items-end"><button className="btn btn-primary w-full">+ إنشاء تاجر</button></div>
       </form>
+      {inviteUrl && <div className="card space-y-2 border-brand-200 bg-brand-50 p-5"><p className="font-black text-night">رابط الدعوة صالح لمدة 7 أيام</p><div className="flex gap-2"><input className="input flex-1" dir="ltr" readOnly value={inviteUrl} /><button className="btn btn-outline" type="button" onClick={() => { void navigator.clipboard.writeText(inviteUrl); toast.toast('success', 'تم نسخ الرابط'); }}>نسخ</button></div></div>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {merchants.length === 0 ? <div className="card lg:col-span-2"><Empty title="لا يوجد تجار" /></div> : merchants.map((merchant) => {
@@ -70,3 +71,4 @@ function ObligationForm({ merchantId, onDone }: { merchantId: string; onDone: ()
   }
   return <form className="mb-4 grid gap-3 rounded-xl border border-brand-100 bg-brand-50/50 p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={submit}><Field label="المبلغ"><input className="input" name="amount" type="number" min="0" required /></Field><Field label="تاريخ الاستحقاق"><input className="input" name="dueDate" type="date" required /></Field><button className="btn btn-primary">إضافة</button></form>;
 }
+

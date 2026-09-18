@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-   provider = "postgresql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Session {
@@ -21,10 +22,14 @@ model Session {
 model User {
   id           String          @id @default(cuid())
   phone        String          @unique
+  email        String?         @unique
   passwordHash String
   name         String
   role         String            @default("CUSTOMER")
   isActive     Boolean         @default(true)
+  mustSetPassword Boolean       @default(false)
+  activationTokenHash String?   @unique
+  activationTokenExpiresAt DateTime?
   source       String  @default("DIRECT")
   merchantId   String?
   merchant     Merchant?       @relation("MerchantCustomers", fields: [merchantId], references: [id])
@@ -40,6 +45,23 @@ model User {
   auditLogs      AuditLog[]
   appCredentials CustomerCredential[]
   merchantAccount Merchant?
+
+  @@index([role])
+  @@index([merchantId])
+}
+
+model MerchantInvitation {
+  id         String   @id @default(cuid())
+  email      String
+  name       String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdById String
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt, usedAt])
 }
 
 model Provider {
@@ -95,6 +117,8 @@ model Subscription {
   notificationRefs Notification[]
 
   @@unique([userId, packageId, phoneNumber, status])
+  @@index([userId, status])
+  @@index([status, renewalDate])
 }
 
 model SubscriptionCycle {
@@ -132,6 +156,7 @@ model Payment {
   paymentMethod  PaymentMethod @relation(fields: [paymentMethodId], references: [id])
   paidFromPhone  String?
   screenshotUrl  String?
+  screenshotPath String?
   status          String         @default("PENDING")
   reviewedBy      String?
   reviewedAt     DateTime?
@@ -140,6 +165,8 @@ model Payment {
   updatedAt      DateTime       @updatedAt
 
   @@unique([subscriptionId, status])
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model Merchant {
@@ -194,6 +221,9 @@ model Notification {
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references:  [id], onDelete: SetNull)
   createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([role, createdAt])
 }
 
 model AuditLog {

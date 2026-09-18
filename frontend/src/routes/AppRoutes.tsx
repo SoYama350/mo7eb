@@ -3,7 +3,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Layout } from '../components/Layout';
 import { Spinner } from '../components/ui';
-import { LoginPage, RegisterPage } from '../pages/AuthPages';
+import { CustomerActivatePage, LoginPage, MerchantInvitePage, RegisterPage } from '../pages/AuthPages';
 import { CustomerDashboard, ProvidersCatalog, MySubscriptions, MyPayments, PointsPage, ProfilePage } from '../pages/customer/Index';
 import { MerchantDashboard, MerchantCustomers, NewCustomerPage } from '../pages/merchant/Index';
 import {
@@ -24,6 +24,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/merchant-invite/:token" element={<MerchantInvitePage />} />
+      <Route path="/customer-activate/:token" element={<CustomerActivatePage />} />
 
       <Route element={<Guard roles={['CUSTOMER']}><Layout><Outlet /></Layout></Guard>}>
         <Route path="/" element={<CustomerDashboard />} />
@@ -57,3 +59,4 @@ export function AppRoutes() {
     </Routes>
   );
 }
+
