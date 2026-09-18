@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, createSession, clearSessionCookie, AuthedRequest } from '../lib/auth';
 import { logAudit } from '../lib/helpers';
 import crypto from 'crypto';
+import { createPasswordResetCode, hashPasswordResetCode, PasswordResetChannel, sendPasswordResetCode } from '../lib/password-reset';
 
 function hashInvitationToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -116,7 +117,64 @@ router.post('/login', async (req, res) => {
   if (!ok) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
  await createSession(req, res, user);
  await logAudit({ actor: user, action: 'auth.login', entityType: 'User', entityId: user.id });
- res.json({ user: publicUser(user, user.merchant ?? undefined) });
+  res.json({ user: publicUser(user, user.merchant ?? undefined) });
+});
+
+router.post('/password-reset/request', async (req, res, next) => {
+  const parsed = z.object({
+    identifier: z.string().min(1),
+    channel: z.enum(['email', 'sms']),
+  }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'اكتب البريد أو رقم الموبايل واختار طريقة الاستلام' });
+
+  const user = await prisma.user.findFirst({ where: { OR: [{ phone: parsed.data.identifier }, { email: parsed.data.identifier }] } });
+  if (!user || !user.isActive) return void res.status(202).json({ message: 'لو البيانات صحيحة، هيوصلك كود الاستعادة.' });
+  if (parsed.data.channel === 'email' && !user.email) return void res.status(400).json({ message: 'الحساب ده مفيهوش بريد إلكتروني مسجل' });
+
+  const code = createPasswordResetCode();
+  try {
+    await sendPasswordResetCode({
+      channel: parsed.data.channel as PasswordResetChannel,
+      destination: parsed.data.channel === 'email' ? user.email! : user.phone,
+      name: user.name,
+      code,
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordResetTokenHash: hashPasswordResetCode(code), passwordResetTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000) },
+    });
+  } catch (error: any) {
+    if (error?.message === 'PASSWORD_RESET_EMAIL_NOT_CONFIGURED' || error?.message === 'PASSWORD_RESET_SMS_NOT_CONFIGURED') {
+      return void res.status(503).json({ message: 'خدمة استعادة كلمة المرور غير مفعلة حالياً' });
+    }
+    return next(error);
+  }
+  res.status(202).json({ message: 'لو البيانات صحيحة، هيوصلك كود الاستعادة.' });
+});
+
+router.post('/password-reset/confirm', async (req, res) => {
+  const parsed = z.object({ identifier: z.string().min(1), code: z.string().regex(/^\d{6}$/), password: z.string().min(12) }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'اكتب كود صحيح وكلمة مرور 12 حرف على الأقل' });
+  const user = await prisma.user.findFirst({ where: { OR: [{ phone: parsed.data.identifier }, { email: parsed.data.identifier }] } });
+  if (!user || user.passwordResetTokenHash !== hashPasswordResetCode(parsed.data.code) || !user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt < new Date()) {
+    return void res.status(400).json({ message: 'الكود غير صحيح أو انتهت صلاحيته' });
+  }
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { passwordHash, passwordResetTokenHash: null, passwordResetTokenExpiresAt: null, mustSetPassword: false } }),
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+  ]);
+  res.json({ ok: true });
+});
+
+router.patch('/password', requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = z.object({ currentPassword: z.string().min(1), password: z.string().min(12) }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'كلمة المرور الجديدة لازم تكون 12 حرف على الأقل' });
+  if (!await bcrypt.compare(parsed.data.currentPassword, req.user!.passwordHash)) return void res.status(400).json({ message: 'كلمة المرور الحالية غير صحيحة' });
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  await prisma.user.update({ where: { id: req.user!.id }, data: { passwordHash, mustSetPassword: false } });
+  await prisma.session.deleteMany({ where: { userId: req.user!.id, id: { not: req.session!.id } } });
+  res.json({ ok: true });
 });
 
 router.post('/logout', requireAuth, async (req: AuthedRequest, res) => {
@@ -154,6 +212,7 @@ function publicUser(user: any, merchant?: any) {
  return {
    id: user.id,
    phone: user.phone,
+   email: user.email ?? null,
    name: user.name,
    role: user.role,
    isActive: user.isActive,
