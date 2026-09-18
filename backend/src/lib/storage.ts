@@ -17,7 +17,7 @@ export async function uploadPrivateObject(path: string, data: Buffer, contentTyp
   const response = await fetch(`${url}/storage/v1/object/${bucket}/${objectPath(path)}`, {
     method: 'POST',
     headers: { ...headers(key, contentType), 'x-upsert': 'false' },
-    body: data as unknown as BodyInit,
+    body: data as any,
   });
   if (!response.ok) throw new Error('تعذر حفظ ملف الدفع بأمان');
 }
