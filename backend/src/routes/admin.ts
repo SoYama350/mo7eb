@@ -4,8 +4,10 @@ import { requireAuth, requireRole, AuthedRequest } from '../lib/auth';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logAudit, notify, statusLabel } from '../lib/helpers';
-import { decryptCredential } from '../lib/crypto';
-import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { getPublicAppUrl } from '../config';
+import { invitationTokenHash } from './auth';
+import { paymentsForClient } from '../lib/payment-view';
 
 const router = Router();
 router.use(requireAuth, requireRole("ADMIN"));
@@ -38,7 +40,7 @@ router.get('/dashboard', async (_req, res) => {
   res.json({
     kpis: { customers, merchantsCount, pendingPayments, merchantDue: merchantDue._sum.amount ?? 0, activeSubscriptions, expiringSubscriptions, expiredSubscriptions, pendingSubscriptions },
     recentSubscriptions,
-    recentPayments,
+    recentPayments: await paymentsForClient(recentPayments),
   });
 });
 
@@ -66,7 +68,7 @@ router.get('/customers', async (req, res) => {
       subscriptions: {
         orderBy: { createdAt: 'desc' },
         take:1,
-        include: { provider: true, package: true, payments: { orderBy: { createdAt: 'desc' }, take: 1 } },
+         include: { provider: true, package: true, payments: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, amount: true, status: true, reviewedAt: true, reviewNote: true, createdAt: true, paymentMethod: true } } },
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -138,8 +140,7 @@ router.get('/customers/:id', async (req, res) => {
     where: { id: req.params.id },
     include: {
       merchant: { select: { id: true, name: true } },
-      subscriptions: { include: { provider: true, package: true, payments: { include: { paymentMethod: true } }, cycles: { include: { package: true } } } },
-      appCredentials: { include: { provider: true } },
+       subscriptions: { include: { provider: true, package: true, payments: { select: { id: true, amount: true, status: true, reviewedAt: true, reviewNote: true, createdAt: true, paymentMethod: true } }, cycles: { include: { package: true } } } },
     },
   });
   if (!customer || customer.role !== "CUSTOMER") return void res.status(404).json({ message: 'العميل مش موجود' });
@@ -162,7 +163,7 @@ router.get('/payments', async (req, res) => {
     },
     orderBy: { createdAt: 'desc' },
   });
-  res.json({ payments });
+  res.json({ payments: await paymentsForClient(payments) });
 });
 
 // ── Admin subscriptions management ─────────────
@@ -181,7 +182,7 @@ router.get('/subscriptions', async (req, res) => {
     },
     orderBy: { createdAt: 'desc' },
   });
-  res.json({ subscriptions });
+  res.json({ subscriptions: await Promise.all(subscriptions.map(async (subscription) => ({ ...subscription, payments: await paymentsForClient(subscription.payments) }))) });
 });
 
 router.post('/subscriptions/:id/activate', async (req: AuthedRequest, res) => {
@@ -217,26 +218,30 @@ router.post('/subscriptions/:id/deactivate', async (req: AuthedRequest, res) => 
 router.post('/merchants', async (req: AuthedRequest, res) => {
   const parsed = z.object({
     name: z.string().min(2).max(80),
-    phone: z.string().regex(/^01[0-9]{9}$/),
-    password: z.string().min(6).optional(),
+    email: z.string().email(),
   }).safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'بيانات غير صحيحة' });
-  const exists = await prisma.user.findUnique({ where: { phone: parsed.data.phone } });
-  if (exists) return void res.status(409).json({ message: 'رقم الموبايل مستخدم بالفعل' });
-  const passwordHash = await bcrypt.hash(parsed.data.password ?? 'password123', 10);
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({ data: { name: parsed.data.name, phone: parsed.data.phone, passwordHash, role: 'MERCHANT' } });
-    const merchant = await tx.merchant.create({ data: { userId: user.id, name: parsed.data.name } });
-    return { merchant, user };
+  const existingUser = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  if (existingUser) return void res.status(409).json({ message: 'البريد الإلكتروني مستخدم بالفعل' });
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const invitation = await prisma.$transaction(async (tx) => {
+    await tx.merchantInvitation.updateMany({
+      where: { email: parsed.data.email, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    return tx.merchantInvitation.create({
+      data: { name: parsed.data.name, email: parsed.data.email, tokenHash: invitationTokenHash(token), expiresAt, createdById: req.user!.id },
+    });
   });
-  await logAudit({ actor: req.user!, action: 'merchant.create', entityType: 'Merchant', entityId: result.merchant.id, details: JSON.stringify({ phone: parsed.data.phone }) });
-  res.status(201).json({ merchant: { ...result.merchant, user: { id: result.user.id, name: result.user.name, phone: result.user.phone, isActive: result.user.isActive } } });
+  await logAudit({ actor: req.user!, action: 'merchant.invite', entityType: 'MerchantInvitation', entityId: invitation.id, details: JSON.stringify({ email: invitation.email }) });
+  res.status(201).json({ invitation: { id: invitation.id, name: invitation.name, email: invitation.email, expiresAt: invitation.expiresAt, inviteUrl: `${getPublicAppUrl()}/merchant-invite/${token}` } });
 });
 
 router.get('/merchants', async (req, res) => {
   const merchants = await prisma.merchant.findMany({
     include: {
-      user: { select: { id: true, phone: true, name: true, isActive: true } },
+      user: { select: { id: true, email: true, phone: true, name: true, isActive: true } },
       _count: { select: { customers: true, obligations: true } },
       obligations: { orderBy: { dueDate: 'desc' }, take:  5 },
     },
@@ -293,15 +298,6 @@ router.get('/audit-logs', async (req, res) => {
 router.get('/notifications', async (req, res) => {
   const notifications = await prisma.notification.findMany({ orderBy: { createdAt: 'desc' }, take: 200 });
   res.json({ notifications });
-});
-
-// ── Decrypt telecom app password (audited )
-router.get('/credentials/:userId/decrypt/:id', async (req: AuthedRequest, res) => {
-  const credential = await prisma.customerCredential.findUnique({ where: { id: req.params.id } } );
-  if (!credential || credential.userId !== req.params.userId) return void res.status(404).json({ message: 'البيانات مش موجودة' });
-  const plaintext = decryptCredential(credential);
-  await logAudit({ actor: req.user!, action: 'credential.decrypt', entityType: 'CustomerCredential', entityId: credential.id, details: JSON.stringify({ userId: req.params.userId, providerId: credential.providerId }) });
-  res.json({ decrypted: plaintext });
 });
 
 export default router;

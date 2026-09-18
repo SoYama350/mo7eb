@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { logAudit, notify, addDays, statusLabel } from '../lib/helpers';
 import { encryptCredential } from '../lib/crypto';
+import { paymentForClient, paymentsForClient } from '../lib/payment-view';
 
 const router = Router();
 router.use(requireAuth);
@@ -15,6 +16,10 @@ export const subscriptionInclude = {
   payments: { orderBy: { createdAt: 'desc' } },
   cycles: { orderBy: { createdAt: 'desc' }, include: { package: true } },
 } satisfies Prisma.SubscriptionInclude;
+
+async function subscriptionForClient(subscription: any): Promise<any> {
+  return { ...subscription, payments: await paymentsForClient(subscription.payments ?? []) };
+}
 
 const createSchema = z.object({
   providerId: z.string().min(1),
@@ -31,14 +36,14 @@ router.get('/', async (req: AuthedRequest, res) => {
     include: subscriptionInclude,
     orderBy: { createdAt: 'desc' },
   });
-  res.json({ subscriptions });
+  res.json({ subscriptions: await Promise.all(subscriptions.map(subscriptionForClient)) });
 });
 
 router.get('/:id', async (req: AuthedRequest, res) => {
   const sub = await prisma.subscription.findUnique({ where: { id: req.params.id }, include: subscriptionInclude });
   if (!sub) return void res.status(404).json({ message: 'الاشتراك مش موجود' });
   if (req.user!.role !== "ADMIN" && sub.userId !== req.user!.id) return void res.status(403).json({ message: 'مش مسموح' });
-  res.json({ subscription: sub });
+  res.json({ subscription: await subscriptionForClient(sub) });
 });
 
 // Create a subscription request (customer)
@@ -113,7 +118,8 @@ router.post('/:id/renew', async (req: AuthedRequest, res) => {
   await prisma.subscription.update({ where: { id: sub.id }, data: { status: "PENDING_REVIEW" } });
   await notify({ userId: sub.userId, type: 'payment.submitted', title: 'اتبع طلب تجديد 💳', message: `اتبع إثبات دفع لتجديد ${sub.package.name}.` });
   await logAudit({ actor: req.user!, action: 'renewal.request', entityType: 'Subscription', entityId: sub.id, details: JSON.stringify({ paymentId: payment.id }) });
-  res.status(201).json({ subscription: await prisma.subscription.findUnique({ where: { id: sub.id }, include: subscriptionInclude }), payment });
+  const refreshed = await prisma.subscription.findUnique({ where: { id: sub.id }, include: subscriptionInclude });
+  res.status(201).json({ subscription: await subscriptionForClient(refreshed), payment: await paymentForClient(payment) });
 });
 
 export { router };
