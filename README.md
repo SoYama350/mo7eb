@@ -1,3 +1,6 @@
+
+
+Production schema and demo account setup completed for the first live deployment.
 # Egypt Telecom Subscription Platform
 
 Arabic-first subscription management for customers, merchants, and admins.
