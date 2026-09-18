@@ -10,6 +10,9 @@ export const authApi = {
   customerActivation: (token: string) => api.get<{ customer: { name: string; phone: string; activationTokenExpiresAt: string } }>(`/auth/customer-activation/${encodeURIComponent(token)}`),
   acceptCustomerActivation: (token: string, password: string) => api.post<{ user: User }>(`/auth/customer-activation/${encodeURIComponent(token)}/accept`, { password }),
   updateMe: (payload: { name: string }) => api.patch<{ user: User }>('/auth/me', payload),
+  changePassword: (payload: { currentPassword: string; password: string }) => api.patch<{ ok: boolean }>('/auth/password', payload),
+  requestPasswordReset: (payload: { identifier: string; channel: 'email' | 'sms' }) => api.post<{ message: string }>('/auth/password-reset/request', payload),
+  confirmPasswordReset: (payload: { identifier: string; code: string; password: string }) => api.post<{ ok: boolean }>('/auth/password-reset/confirm', payload),
 };
 
 export const pointsApi = {
@@ -84,4 +87,3 @@ export const adminCatalogApi = {
   updatePaymentMethod: (id: string, body: Partial<PaymentMethod>) => api.patch<{ paymentMethod: PaymentMethod }>(`/admin/payment-methods/${id}`, body),
   deletePaymentMethod: (id: string) => api.del<{ ok: boolean }>(`/admin/payment-methods/${id}`),
 };
-
