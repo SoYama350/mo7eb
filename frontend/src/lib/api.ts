@@ -22,11 +22,7 @@ export interface AdminCustomer { id: string; name: string; phone: string; source
 
 function resolveApiHost(): string {
   let url = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  if (!url || url.includes('YOUR_RAILWAY_URL_HERE')) {
-    if (import.meta.env.PROD) return '';
-    return 'http://localhost:12001';
-  }
-  if (url.startsWith('/')) return url.replace(/\/+$/, '');
+  if (!url || url.includes('YOUR_RAILWAY_URL_HERE')) return '';
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = `https://${url}`;
   }
