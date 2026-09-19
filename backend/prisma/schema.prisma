@@ -146,27 +146,35 @@ model PaymentMethod {
 }
 
 model Payment {
-  id              String        @id @default(cuid())
-  userId         String
-  user           User          @relation(fields: [userId], references: [id])
-  subscriptionId String
-  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
-  amount         Float
-  paymentMethodId String
-  paymentMethod  PaymentMethod @relation(fields: [paymentMethodId], references: [id])
-  paidFromPhone  String?
-  screenshotUrl  String?
-  screenshotPath String?
-  status          String         @default("PENDING")
-  reviewedBy      String?
-  reviewedAt     DateTime?
-  reviewNote     String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                  String         @id @default(cuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id])
+  subscriptionId     String
+  subscription       Subscription   @relation(fields: [subscriptionId], references: [id])
+  amount             Float
+  paymentChannel      String         @default("MANUAL") // "MANUAL" | "PAYMOB"
+  paymentMethodId     String?
+  paymentMethod      PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  paidFromPhone      String?
+  screenshotUrl      String?
+  screenshotPath     String?
+  status              String         @default("PENDING") // "PENDING" | "PAID" | "APPROVED" | "REJECTED" | "FAILED" | "CANCELLED"
+  paymobIntentionId  String?
+  paymobOrderId      String?
+  paymobTransactionId String?        @unique
+  idempotencyKey       String?        @unique
+  failureReason        String?
+  paidAt               DateTime?
+  reviewedBy          String?
+  reviewedAt         DateTime?
+  reviewNote         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
-  @@unique([subscriptionId, status])
+  @@index([subscriptionId, status])
   @@index([userId, status])
   @@index([status, createdAt])
+  @@index([paymobIntentionId])
 }
 
 model Merchant {
