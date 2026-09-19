@@ -3,7 +3,7 @@ import { getPublicAppUrl } from '../config';
 
 function config() {
   const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, '');
-  const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
+  const anonKey = (process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !anonKey || !serviceRoleKey) throw new Error('SUPABASE_AUTH_NOT_CONFIGURED');
   return { url, anonKey, serviceRoleKey };
