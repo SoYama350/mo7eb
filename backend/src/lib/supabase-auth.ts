@@ -1,27 +1,10 @@
-import crypto from 'crypto';
 import { getPublicAppUrl } from '../config';
 
 function config() {
   const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, '');
-  const anonKey = (process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
-  const serviceRoleKey = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
-  if (!url || !anonKey || !serviceRoleKey) throw new Error('SUPABASE_AUTH_NOT_CONFIGURED');
-  return { url, anonKey, serviceRoleKey };
-}
-
-export async function ensureSupabaseUser(email: string, name: string): Promise<void> {
-  const { url, serviceRoleKey } = config();
-  const response = await fetch(url + '/auth/v1/admin/users', {
-    method: 'POST',
-    headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email,
-      password: crypto.randomBytes(32).toString('base64url'),
-      email_confirm: true,
-      user_metadata: { name },
-    }),
-  });
-  if (!response.ok && response.status !== 400 && response.status !== 422) throw new Error('SUPABASE_AUTH_USER_CREATE_FAILED');
+  const anonKey = (process.env.VITE_PUBLIC_SUPABASE_ANON_KEY ?? process.env.VITE_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
+  if (!url || !anonKey) throw new Error('SUPABASE_AUTH_NOT_CONFIGURED');
+  return { url, anonKey };
 }
 
 export async function requestSupabasePasswordRecovery(email: string): Promise<void> {
