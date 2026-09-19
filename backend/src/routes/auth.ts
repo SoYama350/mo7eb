@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, createSession, clearSessionCookie, AuthedRequest } from '../lib/auth';
 import { logAudit } from '../lib/helpers';
 import crypto from 'crypto';
-import { createPasswordResetCode, hashPasswordResetCode, PasswordResetChannel, sendPasswordResetCode } from '../lib/password-reset';
+import { ensureSupabaseUser, getSupabaseUser, requestSupabasePasswordRecovery } from '../lib/supabase-auth';
 
 function hashInvitationToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -120,51 +120,37 @@ router.post('/login', async (req, res) => {
   res.json({ user: publicUser(user, user.merchant ?? undefined) });
 });
 
-router.post('/password-reset/request', async (req, res, next) => {
-  const parsed = z.object({
-    identifier: z.string().min(1),
-    channel: z.enum(['email', 'sms']),
-  }).safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ message: 'اكتب البريد أو رقم الموبايل واختار طريقة الاستلام' });
-
-  const user = await prisma.user.findFirst({ where: { OR: [{ phone: parsed.data.identifier }, { email: parsed.data.identifier }] } });
-  if (!user || !user.isActive) return void res.status(202).json({ message: 'لو البيانات صحيحة، هيوصلك كود الاستعادة.' });
-  if (parsed.data.channel === 'email' && !user.email) return void res.status(400).json({ message: 'الحساب ده مفيهوش بريد إلكتروني مسجل' });
-
-  const code = createPasswordResetCode();
+router.post('/password-reset/request', async (req, res) => {
+  const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'اكتب بريد إلكتروني صحيح' });
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  if (!user || !user.isActive) return void res.status(202).json({ message: 'لو البريد صحيح، هيوصلك رابط الاستعادة.' });
   try {
-    await sendPasswordResetCode({
-      channel: parsed.data.channel as PasswordResetChannel,
-      destination: parsed.data.channel === 'email' ? user.email! : user.phone,
-      name: user.name,
-      code,
-    });
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordResetTokenHash: hashPasswordResetCode(code), passwordResetTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000) },
-    });
+    await ensureSupabaseUser(parsed.data.email, user.name);
+    await requestSupabasePasswordRecovery(parsed.data.email);
   } catch (error: any) {
-    if (error?.message === 'PASSWORD_RESET_EMAIL_NOT_CONFIGURED' || error?.message === 'PASSWORD_RESET_SMS_NOT_CONFIGURED') {
-      return void res.status(503).json({ message: 'خدمة استعادة كلمة المرور غير مفعلة حالياً' });
-    }
-    return next(error);
+    if (error?.message === 'SUPABASE_AUTH_NOT_CONFIGURED') return void res.status(503).json({ message: 'استعادة البريد غير مفعلة في إعدادات Supabase' });
+    return void res.status(502).json({ message: 'تعذر إرسال رابط الاستعادة حالياً' });
   }
-  res.status(202).json({ message: 'لو البيانات صحيحة، هيوصلك كود الاستعادة.' });
+  res.status(202).json({ message: 'لو البريد صحيح، هيوصلك رابط الاستعادة.' });
 });
 
-router.post('/password-reset/confirm', async (req, res) => {
-  const parsed = z.object({ identifier: z.string().min(1), code: z.string().regex(/^\d{6}$/), password: z.string().min(12) }).safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ message: 'اكتب كود صحيح وكلمة مرور 12 حرف على الأقل' });
-  const user = await prisma.user.findFirst({ where: { OR: [{ phone: parsed.data.identifier }, { email: parsed.data.identifier }] } });
-  if (!user || user.passwordResetTokenHash !== hashPasswordResetCode(parsed.data.code) || !user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt < new Date()) {
-    return void res.status(400).json({ message: 'الكود غير صحيح أو انتهت صلاحيته' });
+router.post('/password/sync', async (req, res) => {
+  const accessToken = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
+  const parsed = z.object({ password: z.string().min(12) }).safeParse(req.body);
+  if (!accessToken || !parsed.success) return void res.status(400).json({ message: 'بيانات الاستعادة غير صحيحة' });
+  try {
+    const authUser = await getSupabaseUser(accessToken);
+    if (!authUser.email) return void res.status(401).json({ message: 'جلسة الاستعادة غير صالحة' });
+    const user = await prisma.user.findUnique({ where: { email: authUser.email } });
+    if (!user || !user.isActive) return void res.status(401).json({ message: 'جلسة الاستعادة غير صالحة' });
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustSetPassword: false } });
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+    return res.json({ ok: true });
+  } catch {
+    return void res.status(401).json({ message: 'جلسة الاستعادة غير صالحة' });
   }
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: user.id }, data: { passwordHash, passwordResetTokenHash: null, passwordResetTokenExpiresAt: null, mustSetPassword: false } }),
-    prisma.session.deleteMany({ where: { userId: user.id } }),
-  ]);
-  res.json({ ok: true });
 });
 
 router.patch('/password', requireAuth, async (req: AuthedRequest, res) => {
