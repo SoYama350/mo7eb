@@ -126,11 +126,65 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
-  const toast = useToast(); const navigate = useNavigate(); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false); const [error, setError] = useState('');
-  useEffect(() => { if (!supabase) { setError('استعادة كلمة المرور غير مفعلة في إعدادات الموقع'); setReady(true); return; } void supabase.auth.getSession().then(({ data, error: sessionError }) => { if (sessionError || !data.session) setError('الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.'); setReady(true); }); }, []);
-  async function onSubmit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const password = String(new FormData(event.currentTarget).get('password')); setBusy(true); try { if (!supabase) throw new Error('استعادة كلمة المرور غير مفعلة في إعدادات الموقع'); const { data: sessionData } = await supabase.auth.getSession(); if (!sessionData.session) throw new Error('الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.'); const { error: updateError } = await supabase.auth.updateUser({ password }); if (updateError) throw updateError; await authApi.syncSupabasePassword(sessionData.session.access_token, password); await supabase.auth.signOut(); toast.toast('success', 'تم تغيير كلمة المرور. سجّل دخولك بالكلمة الجديدة.'); navigate('/login', { replace: true }); } catch (error: any) { toast.toast('error', error?.message ?? 'تعذر تغيير كلمة المرور'); } finally { setBusy(false); } }
-  return <Shell title="تعيين كلمة مرور جديدة" subtitle="اختر كلمة مرور قوية لا تقل عن 12 حرفًا">{error && <div className="mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>}{ready && !error && <form onSubmit={onSubmit} className="space-y-4"><Field label="كلمة المرور الجديدة" required><input name="password" type="password" className="input" dir="ltr" minLength={12} placeholder="12 حرف على الأقل" required /></Field><button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الحفظ…' : 'حفظ كلمة المرور'}</button></form>}</Shell>;
-}export function RegisterPage() {
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!supabase) {
+      setError('استعادة كلمة المرور غير مفعلة في إعدادات الموقع');
+      setReady(true);
+      return;
+    }
+    void supabase.auth.getSession().then(({ data, error: sessionError }: { data: any; error: any }) => {
+      if (sessionError || !data?.session) {
+        setError('الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.');
+      }
+      setReady(true);
+    });
+  }, []);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const password = String(new FormData(event.currentTarget).get('password'));
+    setBusy(true);
+    try {
+      if (!supabase) throw new Error('استعادة كلمة المرور غير مفعلة في إعدادات الموقع');
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) throw new Error('الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.');
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) throw updateError;
+      await authApi.syncSupabasePassword(sessionData.session.access_token, password);
+      await supabase.auth.signOut();
+      toast.toast('success', 'تم تغيير كلمة المرور. سجّل دخولك بالكلمة الجديدة.');
+      navigate('/login', { replace: true });
+    } catch (error: any) {
+      toast.toast('error', error?.message ?? 'تعذر تغيير كلمة المرور');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Shell title="تعيين كلمة مرور جديدة" subtitle="اختر كلمة مرور قوية لا تقل عن 12 حرفًا">
+      {error && <div className="mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>}
+      {ready && !error && (
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Field label="كلمة المرور الجديدة" required>
+            <input name="password" type="password" className="input" dir="ltr" minLength={12} placeholder="12 حرف على الأقل" required />
+          </Field>
+          <button className="btn btn-primary w-full py-3" disabled={busy}>
+            {busy ? 'جاري الحفظ…' : 'حفظ كلمة المرور'}
+          </button>
+        </form>
+      )}
+    </Shell>
+  );
+}
+
+export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();

@@ -31,6 +31,17 @@ app.use(
       if (configuredOrigins.includes(cleanOrigin)) {
         return callback(null, true);
       }
+
+      // Automatically allow any Vercel domain for mo7eb (production and preview deployments)
+      if (/^https:\/\/mo7eb[a-zA-Z0-9-]*\.vercel\.app$/.test(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow localhost for local development
+      if (/^https?:\/\/localhost(:\d+)?$/.test(cleanOrigin)) {
+        return callback(null, true);
+      }
+
       return callback(null, false);
     },
     credentials: true,

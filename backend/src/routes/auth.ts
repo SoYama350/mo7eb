@@ -113,6 +113,7 @@ router.post('/login', async (req, res) => {
   const { password } = parsed.data;
   const user = await prisma.user.findFirst({ where: { OR: [{ phone: identifier }, { email: identifier }] }, include: { merchant: true } });
   if (!user || !user.isActive) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
+  if (user.mustSetPassword) return void res.status(403).json({ message: 'الحساب لم يتم تفعيله بعد. استخدم رابط التفعيل الذي وصلك.' });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
  await createSession(req, res, user);
