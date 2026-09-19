@@ -87,3 +87,4 @@ export const adminCatalogApi = {
   updatePaymentMethod: (id: string, body: Partial<PaymentMethod>) => api.patch<{ paymentMethod: PaymentMethod }>(`/admin/payment-methods/${id}`, body),
   deletePaymentMethod: (id: string) => api.del<{ ok: boolean }>(`/admin/payment-methods/${id}`),
 };
+
