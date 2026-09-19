@@ -36,9 +36,12 @@ export const subscriptionApi = {
 };
 
 export const paymentApi = {
+  config: () => api.get<{ paymobAvailable: boolean; environment: string }>('/payments/config'),
+  initiatePaymob: (subscriptionId: string) => api.post<{ payment: Payment; checkoutUrl: string; clientSecret: string }>('/payments/paymob/initiate', { subscriptionId }),
+  paymobStatus: (paymentId: string) => api.get<{ payment: Payment; status: string; isPaid: boolean }>(`/payments/paymob/status/${paymentId}`),
   submit: (form: FormData) => api.upload<{ payment: Payment; updated?: boolean }>('/payments', form),
   review: (id: string, payload: { decision: 'approved' | 'rejected'; reviewNote?: string }) => api.post<{ ok: boolean; status: string }>(`/payments/${id}/review`, payload),
- mine: () => api.get<{ payments: Payment[] }>('/payments'),
+  mine: () => api.get<{ payments: Payment[] }>('/payments'),
 };
 
 export const notificationApi = {
