@@ -10,6 +10,9 @@ export const authApi = {
   customerActivation: (token: string) => api.get<{ customer: { name: string; phone: string; activationTokenExpiresAt: string } }>(`/auth/customer-activation/${encodeURIComponent(token)}`),
   acceptCustomerActivation: (token: string, password: string) => api.post<{ user: User }>(`/auth/customer-activation/${encodeURIComponent(token)}/accept`, { password }),
   updateMe: (payload: { name: string }) => api.patch<{ user: User }>('/auth/me', payload),
+  changePassword: (payload: { currentPassword: string; password: string }) => api.patch<{ ok: boolean }>('/auth/password', payload),
+  requestPasswordReset: (email: string) => api.post<{ message: string }>('/auth/password-reset/request', { email }),
+  syncSupabasePassword: (accessToken: string, password: string) => api.postWithHeaders<{ ok: boolean }>('/auth/password/sync', { password }, { Authorization: `Bearer ${accessToken}` }),
 };
 
 export const pointsApi = {

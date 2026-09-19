@@ -1,6 +1,6 @@
 export type Role = 'CUSTOMER' | 'MERCHANT' | 'ADMIN';
 
-export interface User { id: string; phone: string; name: string; role: Role; isActive: boolean; points: number; source: string; merchantId: string | null; }
+export interface User { id: string; phone: string; email?: string | null; name: string; role: Role; isActive: boolean; points: number; source: string; merchantId: string | null; }
 export interface PointTransaction { id: string; userId: string; amount: number; reason: string; createdAt: string; }
 export interface Provider { id: string; slug: string; name: string; logo: string; primaryColor: string; secondaryColor: string; isActive: boolean; order: number; packages?: Package[]; createdAt?: string; updatedAt?: string; }
 export interface Package { id: string; providerId: string; name: string; internetGB?: number | null; minutes?: number | null; price: number; durationDays: number; reminderDays?: number | null; isActive?: boolean; logo?: string | null; primaryColor?: string | null; secondaryColor?: string | null; provider?: Provider; createdAt?: string; }
@@ -62,6 +62,7 @@ export function qs(params: Record<string, string | number | boolean | undefined 
 export const api = {
   get: <T,>(path: string) => request<T>(path),
   post: <T,>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
+  postWithHeaders: <T,>(path: string, body: unknown, headers: Record<string, string>) => request<T>(path, { method: 'POST', body: JSON.stringify(body), headers }),
   patch: <T,>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
   put: <T,>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   del: <T,>(path: string) => request<T>(path, { method: 'DELETE' }),

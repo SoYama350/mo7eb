@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, createSession, clearSessionCookie, AuthedRequest } from '../lib/auth';
 import { logAudit } from '../lib/helpers';
 import crypto from 'crypto';
+import { getSupabaseUser, requestSupabasePasswordRecovery } from '../lib/supabase-auth';
 
 function hashInvitationToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -112,11 +113,54 @@ router.post('/login', async (req, res) => {
   const { password } = parsed.data;
   const user = await prisma.user.findFirst({ where: { OR: [{ phone: identifier }, { email: identifier }] }, include: { merchant: true } });
   if (!user || !user.isActive) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
+  if (user.mustSetPassword) return void res.status(403).json({ message: 'الحساب لم يتم تفعيله بعد. استخدم رابط التفعيل الذي وصلك.' });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return void res.status(401).json({ message: 'رقم الموبايل أو كلمة المرور غير صحيحة' });
  await createSession(req, res, user);
  await logAudit({ actor: user, action: 'auth.login', entityType: 'User', entityId: user.id });
- res.json({ user: publicUser(user, user.merchant ?? undefined) });
+  res.json({ user: publicUser(user, user.merchant ?? undefined) });
+});
+
+router.post('/password-reset/request', async (req, res) => {
+  const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'اكتب بريد إلكتروني صحيح' });
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  if (!user || !user.isActive) return void res.status(202).json({ message: 'لو البريد صحيح، هيوصلك رابط الاستعادة.' });
+  try {
+    await requestSupabasePasswordRecovery(parsed.data.email);
+  } catch (error: any) {
+    if (error?.message === 'SUPABASE_AUTH_NOT_CONFIGURED') return void res.status(503).json({ message: 'استعادة البريد غير مفعلة في إعدادات Supabase' });
+    return void res.status(502).json({ message: 'تعذر إرسال رابط الاستعادة حالياً' });
+  }
+  res.status(202).json({ message: 'لو البريد صحيح، هيوصلك رابط الاستعادة.' });
+});
+
+router.post('/password/sync', async (req, res) => {
+  const accessToken = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
+  const parsed = z.object({ password: z.string().min(12) }).safeParse(req.body);
+  if (!accessToken || !parsed.success) return void res.status(400).json({ message: 'بيانات الاستعادة غير صحيحة' });
+  try {
+    const authUser = await getSupabaseUser(accessToken);
+    if (!authUser.email) return void res.status(401).json({ message: 'جلسة الاستعادة غير صالحة' });
+    const user = await prisma.user.findUnique({ where: { email: authUser.email } });
+    if (!user || !user.isActive) return void res.status(401).json({ message: 'جلسة الاستعادة غير صالحة' });
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustSetPassword: false } });
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+    return res.json({ ok: true });
+  } catch {
+    return void res.status(401).json({ message: 'جلسة الاستعادة غير صالحة' });
+  }
+});
+
+router.patch('/password', requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = z.object({ currentPassword: z.string().min(1), password: z.string().min(12) }).safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ message: 'كلمة المرور الجديدة لازم تكون 12 حرف على الأقل' });
+  if (!await bcrypt.compare(parsed.data.currentPassword, req.user!.passwordHash)) return void res.status(400).json({ message: 'كلمة المرور الحالية غير صحيحة' });
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  await prisma.user.update({ where: { id: req.user!.id }, data: { passwordHash, mustSetPassword: false } });
+  await prisma.session.deleteMany({ where: { userId: req.user!.id, id: { not: req.session!.id } } });
+  res.json({ ok: true });
 });
 
 router.post('/logout', requireAuth, async (req: AuthedRequest, res) => {
@@ -154,6 +198,7 @@ function publicUser(user: any, merchant?: any) {
  return {
    id: user.id,
    phone: user.phone,
+   email: user.email ?? null,
    name: user.name,
    role: user.role,
    isActive: user.isActive,

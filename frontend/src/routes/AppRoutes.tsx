@@ -3,7 +3,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Layout } from '../components/Layout';
 import { Spinner } from '../components/ui';
-import { CustomerActivatePage, LoginPage, MerchantInvitePage, RegisterPage } from '../pages/AuthPages';
+import { CustomerActivatePage, ForgotPasswordPage, LoginPage, MerchantInvitePage, RegisterPage, ResetPasswordPage } from '../pages/AuthPages';
 import { CustomerDashboard, ProvidersCatalog, MySubscriptions, MyPayments, PointsPage, ProfilePage } from '../pages/customer/Index';
 import { MerchantDashboard, MerchantCustomers, NewCustomerPage } from '../pages/merchant/Index';
 import {
@@ -24,6 +24,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/merchant-invite/:token" element={<MerchantInvitePage />} />
       <Route path="/customer-activate/:token" element={<CustomerActivatePage />} />
 
@@ -59,4 +61,3 @@ export function AppRoutes() {
     </Routes>
   );
 }
-

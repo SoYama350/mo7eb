@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Field, useToast } from '../components/ui';
 import { authApi } from '../services/api';
+import { supabase } from '../lib/supabase';
 
 const BRAND_GRADIENT = 'bg-gradient-to-br from-brand-700 via-brand-600 to-sky-500';
 
@@ -98,6 +99,87 @@ export function LoginPage() {
       <p className="mt-6 text-center text-sm text-slate-500">
         حساب جديد؟ <Link to="/register" className="font-black text-brand-600">سجّل الآن</Link>
       </p>
+      <p className="mt-3 text-center text-sm"><Link to="/forgot-password" className="font-black text-brand-600">نسيت كلمة المرور؟</Link></p>
+    </Shell>
+  );
+}
+
+export function ForgotPasswordPage() {
+  const toast = useToast();
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true);
+    try { await authApi.requestPasswordReset(email); setSent(true); toast.toast('success', 'لو البريد صحيح، هيوصلك رابط الاستعادة'); }
+    catch (error: any) { toast.toast('error', error?.message ?? 'تعذر إرسال رابط الاستعادة'); }
+    finally { setBusy(false); }
+  }
+  return <Shell title="استعادة كلمة المرور" subtitle="هنبعت رابط آمن على بريدك الإلكتروني">
+    <form onSubmit={onSubmit} className="space-y-4">
+      <Field label="البريد الإلكتروني" required><input type="email" name="email" className="input" dir="ltr" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required /></Field>
+      {sent && <p className="rounded-xl bg-brand-50 p-3 text-sm leading-6 text-brand-800">راجع بريدك واضغط رابط الاستعادة. قد يصل إلى الرسائل غير المرغوب فيها.</p>}
+      <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الإرسال…' : 'إرسال رابط الاستعادة'}</button>
+    </form>
+    <p className="mt-3 text-center text-sm text-slate-500"><Link to="/login" className="font-black text-brand-600">العودة لتسجيل الدخول</Link></p>
+  </Shell>;
+}
+
+export function ResetPasswordPage() {
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!supabase) {
+      setError('استعادة كلمة المرور غير مفعلة في إعدادات الموقع');
+      setReady(true);
+      return;
+    }
+    void supabase.auth.getSession().then(({ data, error: sessionError }: { data: any; error: any }) => {
+      if (sessionError || !data?.session) {
+        setError('الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.');
+      }
+      setReady(true);
+    });
+  }, []);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const password = String(new FormData(event.currentTarget).get('password'));
+    setBusy(true);
+    try {
+      if (!supabase) throw new Error('استعادة كلمة المرور غير مفعلة في إعدادات الموقع');
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) throw new Error('الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.');
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) throw updateError;
+      await authApi.syncSupabasePassword(sessionData.session.access_token, password);
+      await supabase.auth.signOut();
+      toast.toast('success', 'تم تغيير كلمة المرور. سجّل دخولك بالكلمة الجديدة.');
+      navigate('/login', { replace: true });
+    } catch (error: any) {
+      toast.toast('error', error?.message ?? 'تعذر تغيير كلمة المرور');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Shell title="تعيين كلمة مرور جديدة" subtitle="اختر كلمة مرور قوية لا تقل عن 12 حرفًا">
+      {error && <div className="mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>}
+      {ready && !error && (
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Field label="كلمة المرور الجديدة" required>
+            <input name="password" type="password" className="input" dir="ltr" minLength={12} placeholder="12 حرف على الأقل" required />
+          </Field>
+          <button className="btn btn-primary w-full py-3" disabled={busy}>
+            {busy ? 'جاري الحفظ…' : 'حفظ كلمة المرور'}
+          </button>
+        </form>
+      )}
     </Shell>
   );
 }
@@ -120,6 +202,7 @@ export function RegisterPage() {
         name: String(fd.get('name')),
         phone: String(fd.get('phone')),
         password: String(fd.get('password')),
+        email: String(fd.get('email') || '') || undefined,
       });
       toast.toast('success', 'تم إنشاء الحساب');
       navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'MERCHANT' ? '/merchant' : '/', { replace: true });
@@ -139,6 +222,9 @@ export function RegisterPage() {
         </Field>
         <Field label="رقم الموبايل" required>
           <input name="phone" dir="ltr" className="input" placeholder="01xxxxxxxxx" required />
+        </Field>
+        <Field label="البريد الإلكتروني (اختياري)">
+          <input name="email" type="email" dir="ltr" className="input" placeholder="name@example.com" />
         </Field>
         <Field label="كلمة المرور" required>
            <input name="password" type="password" dir="ltr" className="input" placeholder="12 حرف على الأقل" minLength={12} required />
