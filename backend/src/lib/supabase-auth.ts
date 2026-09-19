@@ -15,7 +15,7 @@ export async function requestSupabasePasswordRecovery(email: string): Promise<vo
     headers: { apikey: anonKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   });
-  if (!response.ok) throw new Error('SUPABASE_AUTH_RECOVERY_FAILED_' + response.status);
+  if (!response.ok) throw new Error('SUPABASE_AUTH_RECOVERY_FAILED');
 }
 
 export async function getSupabaseUser(accessToken: string): Promise<{ email?: string | null }> {
