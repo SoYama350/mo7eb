@@ -50,6 +50,31 @@ router.get('/financials', async (req: AuthedRequest, res) => {
   });
 });
 
+// List merchant's own registered customers (strictly scoped to merchantId)
+router.get('/customers', async (req: AuthedRequest, res) => {
+  const merchantId = await getMerchantId(req);
+  if (!merchantId) return void res.status(404).json({ message: 'التاجر مش موجود' });
+
+  const customers = await prisma.user.findMany({
+    where: { merchantId, role: 'CUSTOMER' },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      isActive: true,
+      createdAt: true,
+      subscriptions: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: { package: { select: { name: true, price: true } }, provider: { select: { name: true } } },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  res.json({ customers });
+});
+
 // merchant submits a customer record  (simple:  name/phone/provider/package)
 const customerSchema = z.object({
   name: z.string().min(2).max(80),
