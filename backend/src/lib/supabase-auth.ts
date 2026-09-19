@@ -2,7 +2,7 @@ import { getPublicAppUrl } from '../config';
 
 function config() {
   const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, '');
-  const anonKey = (process.env.VITE_PUBLIC_SUPABASE_ANON_KEY ?? process.env.VITE_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
+  const anonKey = (process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_PUBLIC_SUPABASE_ANON_KEY ?? process.env.VITE_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
   if (!url || !anonKey) throw new Error('SUPABASE_AUTH_NOT_CONFIGURED');
   return { url, anonKey };
 }
