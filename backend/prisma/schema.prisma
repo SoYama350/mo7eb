@@ -30,8 +30,6 @@ model User {
   mustSetPassword Boolean       @default(false)
   activationTokenHash String?   @unique
   activationTokenExpiresAt DateTime?
-  passwordResetTokenHash String? @unique
-  passwordResetTokenExpiresAt DateTime?
   source       String  @default("DIRECT")
   merchantId   String?
   merchant     Merchant?       @relation("MerchantCustomers", fields: [merchantId], references: [id])
