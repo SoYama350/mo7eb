@@ -129,7 +129,6 @@ router.post('/password-reset/request', async (req, res) => {
     await requestSupabasePasswordRecovery(parsed.data.email);
   } catch (error: any) {
     if (error?.message === 'SUPABASE_AUTH_NOT_CONFIGURED') return void res.status(503).json({ message: 'استعادة البريد غير مفعلة في إعدادات Supabase' });
-    if (String(error?.message).startsWith('SUPABASE_AUTH_RECOVERY_FAILED_')) return void res.status(502).json({ message: error.message });
     return void res.status(502).json({ message: 'تعذر إرسال رابط الاستعادة حالياً' });
   }
   res.status(202).json({ message: 'لو البريد صحيح، هيوصلك رابط الاستعادة.' });
