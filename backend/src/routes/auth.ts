@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, createSession, clearSessionCookie, AuthedRequest } from '../lib/auth';
 import { logAudit } from '../lib/helpers';
 import crypto from 'crypto';
-import { ensureSupabaseUser, getSupabaseUser, requestSupabasePasswordRecovery } from '../lib/supabase-auth';
+import { getSupabaseUser, requestSupabasePasswordRecovery } from '../lib/supabase-auth';
 
 function hashInvitationToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -126,7 +126,6 @@ router.post('/password-reset/request', async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (!user || !user.isActive) return void res.status(202).json({ message: 'لو البريد صحيح، هيوصلك رابط الاستعادة.' });
   try {
-    await ensureSupabaseUser(parsed.data.email, user.name);
     await requestSupabasePasswordRecovery(parsed.data.email);
   } catch (error: any) {
     if (error?.message === 'SUPABASE_AUTH_NOT_CONFIGURED') return void res.status(503).json({ message: 'استعادة البريد غير مفعلة في إعدادات Supabase' });
