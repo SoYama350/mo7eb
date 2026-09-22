@@ -17,15 +17,17 @@ const router = Router();
 
 // GET /api/v1/payments/config — Public payment options & availability
 router.get('/config', (_req, res) => {
-  const paymob = getPaymobConfig();
   res.json({
-    paymobAvailable: Boolean(paymob),
-    environment: paymob?.environment ?? 'disabled',
+    paymobAvailable: false,
+    environment: 'disabled',
+    manualOnly: true,
   });
 });
 
 // POST /api/v1/payments/paymob/webhook — Paymob Transaction Webhook
 router.post('/paymob/webhook', async (req: Request, res: Response) => {
+  if (process.env.PAYMOB_ENABLED !== 'true') return void res.status(410).json({ message: 'الدفع الإلكتروني غير متاح حالياً' });
+  /* Legacy Paymob webhook retained below for future reactivation. */
   try {
     const payload = req.body;
     const obj = payload?.obj;
@@ -207,6 +209,7 @@ router.use(requireAuth);
 
 // POST /api/v1/payments/paymob/initiate — Create Paymob payment intention for subscription
 router.post('/paymob/initiate', async (req: AuthedRequest, res: Response) => {
+  if (process.env.PAYMOB_ENABLED !== 'true') return void res.status(410).json({ message: 'الدفع الإلكتروني غير متاح حالياً' });
   try {
     const { subscriptionId } = req.body;
     if (!subscriptionId || typeof subscriptionId !== 'string') {
@@ -283,6 +286,7 @@ router.post('/paymob/initiate', async (req: AuthedRequest, res: Response) => {
 
 // GET /api/v1/payments/paymob/status/:id — Check status of a Paymob payment
 router.get('/paymob/status/:id', async (req: AuthedRequest, res: Response) => {
+  if (process.env.PAYMOB_ENABLED !== 'true') return void res.status(410).json({ message: 'الدفع الإلكتروني غير متاح حالياً' });
   const payment = await prisma.payment.findUnique({
     where: { id: req.params.id },
     include: { subscription: { include: { package: true } } },
@@ -338,7 +342,6 @@ const paymentSchema = z.object({
   subscriptionId: z.string().min(1),
   paymentMethodId: z.string().min(1),
   paidFromPhone: z.string().regex(/^01[0-9]{9}$/, 'رقم الموبايل المستخدم في الدفع غير صحيح').optional(),
-  amount: z.preprocess((value) => value === '' || value === undefined ? undefined : Number(value), z.number().positive().optional()),
 });
 
 // POST /api/v1/payments — submit manual payment info + screenshot (multipart/form-data)
@@ -363,10 +366,8 @@ router.post('/', upload.single('screenshot'), async (req: AuthedRequest, res: Re
     if (!looksLikeImage(req.file.buffer)) {
       return void res.status(400).json({ message: 'الملف مش صورة حقيقية' });
     }
-    const amount = parsed.data.amount ?? sub.package.price;
-    if (Math.abs(amount - sub.package.price) > 0.01) {
-      return void res.status(400).json({ message: 'مبلغ الدفع يجب أن يطابق سعر الباقة' });
-    }
+    // The package in the database is the only source of truth for the amount.
+    const amount = sub.package.price;
 
     // idempotency: a PENDING manual payment already exists for this subscription
     const existingPending = await prisma.payment.findFirst({
@@ -434,9 +435,9 @@ router.post('/:id/review', async (req: AuthedRequest, res: Response) => {
   const approved = decision === 'approved';
   if (approved && !payment.screenshotPath && !payment.screenshotUrl) return void res.status(400).json({ message: 'لا يمكن اعتماد دفعة بدون صورة إثبات' });
 
-  await prisma.$transaction(async (tx) => {
-    const updated = await tx.payment.update({
-      where: { id: payment.id },
+  const processed = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.payment.updateMany({
+      where: { id: payment.id, status: 'PENDING' },
       data: {
         status: approved ? 'APPROVED' : 'REJECTED',
         reviewedBy: req.user!.id,
@@ -444,6 +445,7 @@ router.post('/:id/review', async (req: AuthedRequest, res: Response) => {
         reviewNote: note,
       },
     });
+    if (claimed.count !== 1) return false;
 
     await tx.auditLog.create({
       data: {
@@ -523,8 +525,10 @@ router.post('/:id/review', async (req: AuthedRequest, res: Response) => {
       });
     }
 
-    return updated;
+    return true;
   });
+
+  if (!processed) return void res.status(409).json({ message: 'الدفعة دي اتراجعت قبل كده' });
 
   res.json({ ok: true, status: approved ? 'approved' : 'rejected' });
 });
