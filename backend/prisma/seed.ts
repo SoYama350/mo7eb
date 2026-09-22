@@ -391,6 +391,11 @@ export async function seedCatalog() {
   }
 
   // ── 3. Payment Methods ─────────────────────────
+  await prisma.paymentMethod.updateMany({
+    where: { id: { notIn: ['instapay', 'vodafone-cash', 'orange-cash'] } },
+    data: { isActive: false },
+  });
+
   await Promise.all([
     prisma.paymentMethod.upsert({
       where: { id: 'instapay' },
