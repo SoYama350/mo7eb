@@ -133,110 +133,20 @@ export function MyPayments() {
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {/* InstaPay */}
-          <article className="relative flex flex-col justify-between rounded-2xl border-2 border-brand-200 bg-brand-50/70 p-5 shadow-sm">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">⚡</span>
-                <span className="rounded-full bg-brand-600 px-2.5 py-0.5 text-[10px] font-black text-white">الأسرع والمفضل</span>
-              </div>
-              <h3 className="mt-3 text-base font-black text-night">InstaPay (إنستا باي)</h3>
-              <p className="mt-1 text-xs text-slate-600">تحويل فوري بدون رسوم من أي بنك أو محفظة.</p>
-
-              <div className="mt-4 space-y-2">
-                <div className="rounded-xl bg-white p-2.5 border border-brand-100">
-                  <p className="text-[10px] font-bold text-slate-400">معرف إنستا باي (IPA):</p>
-                  <div className="flex items-center justify-between gap-1 mt-0.5">
-                    <span className="font-black text-brand-800 text-sm" dir="ltr">elmo7eb@instapay</span>
-                    <button
-                      type="button"
-                      className="text-xs font-bold text-brand-600 hover:text-brand-800"
-                      onClick={() => handleCopy('elmo7eb@instapay', 'معرف إنستا باي')}
-                    >
-                      نسخ
-                    </button>
+          {methods.map((method) => (
+            <article key={method.id} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+              <div>
+                <h3 className="text-base font-black text-night">{method.name}</h3>
+                {method.accountIdentifier ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[10px] font-bold text-slate-400">بيانات التحويل:</p>
+                    <span className="mt-1 block break-all text-sm font-black text-brand-800" dir="ltr">{method.accountIdentifier}</span>
                   </div>
-                </div>
-
-                <div className="rounded-xl bg-white p-2.5 border border-brand-100">
-                  <p className="text-[10px] font-bold text-slate-400">رقم الهاتف المرتبط:</p>
-                  <div className="flex items-center justify-between gap-1 mt-0.5">
-                    <span className="font-black text-slate-800 text-sm" dir="ltr">01550356806</span>
-                    <button
-                      type="button"
-                      className="text-xs font-bold text-brand-600 hover:text-brand-800"
-                      onClick={() => handleCopy('01550356806', 'رقم الهاتف')}
-                    >
-                      نسخ
-                    </button>
-                  </div>
-                </div>
+                ) : <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800">بيانات التحويل غير متاحة حالياً. تواصل مع الإدارة قبل التحويل.</p>}
+                <p className="mt-4 text-[11px] leading-5 text-slate-600">{method.instructions ?? 'بعد التحويل، احتفظ بصورة الإيصال لإرفاقها بالطلب.'}</p>
               </div>
-            </div>
-
-            <a
-              href="https://ipn.eg/S/elmo7eb/instapay/1aki2O"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-primary mt-4 w-full py-2.5 text-center text-xs font-black shadow-md shadow-brand-700/20"
-            >
-              فتح رابط إنستا باي المباشر ↗
-            </a>
-          </article>
-
-          {/* Vodafone Cash */}
-          <article className="flex flex-col justify-between rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">🔴</span>
-                <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-black text-white">فودافون كاش</span>
-              </div>
-              <h3 className="mt-3 text-base font-black text-night">Vodafone Cash</h3>
-              <p className="mt-1 text-xs text-slate-600">تحويل كاش من أي محفظة فودافون.</p>
-
-              <div className="mt-4 rounded-xl bg-white p-3 border border-rose-100">
-                <p className="text-[10px] font-bold text-slate-400">رقم المحفظة المستلمة:</p>
-                <div className="flex items-center justify-between gap-1 mt-1">
-                  <span className="font-black text-rose-700 text-base" dir="ltr">01550356806</span>
-                  <button
-                    type="button"
-                    className="text-xs font-bold text-rose-600 hover:text-rose-800"
-                    onClick={() => handleCopy('01550356806', 'رقم فودافون كاش')}
-                  >
-                    نسخ الرقم
-                  </button>
-                </div>
-              </div>
-            </div>
-            <p className="mt-4 text-[11px] text-slate-500">بعد التحويل، احتفظ بلقطة الشاشة (اسكرين) لإرفاقها بالطلب.</p>
-          </article>
-
-          {/* Orange Cash */}
-          <article className="flex flex-col justify-between rounded-2xl border border-orange-200 bg-orange-50/50 p-5">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">🟠</span>
-                <span className="rounded-full bg-orange-600 px-2.5 py-0.5 text-[10px] font-black text-white">أورنج كاش</span>
-              </div>
-              <h3 className="mt-3 text-base font-black text-night">Orange Cash</h3>
-              <p className="mt-1 text-xs text-slate-600">تحويل كاش من أي محفظة أورنج.</p>
-
-              <div className="mt-4 rounded-xl bg-white p-3 border border-orange-100">
-                <p className="text-[10px] font-bold text-slate-400">رقم المحفظة المستلمة:</p>
-                <div className="flex items-center justify-between gap-1 mt-1">
-                  <span className="font-black text-orange-700 text-base" dir="ltr">01550356806</span>
-                  <button
-                    type="button"
-                    className="text-xs font-bold text-orange-600 hover:text-orange-800"
-                    onClick={() => handleCopy('01550356806', 'رقم أورنج كاش')}
-                  >
-                    نسخ الرقم
-                  </button>
-                </div>
-              </div>
-            </div>
-            <p className="mt-4 text-[11px] text-slate-500">بعد التحويل، احتفظ بلقطة الشاشة (اسكرين) لإرفاقها بالطلب.</p>
-          </article>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -379,7 +289,7 @@ export function MyPayments() {
           </div>
           <div className="space-y-5 p-5">
             <Step number="01" title="اختر الباقة وأنشئ الطلب" text="اختر الباقة المناسبة من كتالوج الباقات ليتم تسجيل طلب الاشتراك." />
-            <Step number="02" title="حوّل المبلغ المطلوب" text="استخدم إنستا باي (elmo7eb@instapay) أو محافظ الكاش على الرقم 01550356806." />
+            <Step number="02" title="حوّل المبلغ المطلوب" text="استخدم بيانات وسيلة الدفع المعروضة بالأعلى، ولا تنس الاحتفاظ بصورة التحويل." />
             <Step number="03" title="ارفع صورة الإيصال" text="ارفع لقطة الشاشة من النموذج وسيصل طلبك فوراً لمراجعة الإدارة." />
             <Step number="04" title="تفعيل فوري ونقاط ولاء" text="بمجرد مراجعة الإيصال يتم تفعيل خطك وإضافة نقاط الولاء لرصيدك ⭐" />
           </div>
