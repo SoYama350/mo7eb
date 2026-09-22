@@ -70,9 +70,15 @@ export function ProvidersCatalog() {
 
       <Modal open={!!pick} onClose={closeModal} title="ابدأ الاشتراك">
         {pick && <form className="space-y-4" onSubmit={subscribe}>
-          <div className="rounded-2xl p-4" style={{ background: pick.provider.secondaryColor ?? '#ecfeff' }}><p className="text-xs font-bold" style={{ color: pick.provider.primaryColor }}>{pick.provider.name}</p><p className="mt-1 text-lg font-black text-night">{pick.package.name}</p><p className="mt-1 text-sm text-slate-500">{fmtMoney(pick.package.price)} · {pick.package.durationDays} يوم</p></div>
+          <div className="rounded-2xl p-4" style={{ background: pick.provider.secondaryColor ?? '#ecfeff' }}>
+            <p className="text-xs font-bold" style={{ color: pick.provider.primaryColor }}>{pick.provider.name}</p>
+            <p className="mt-1 text-lg font-black text-night">{pick.package.name}</p>
+            <p className="mt-1 text-sm font-black text-brand-800">{fmtMoney(pick.package.price)} · {pick.package.durationDays} يوم</p>
+            {pick.package.activationInfo && <p className="mt-2 text-xs font-bold text-slate-700">⏱ {pick.package.activationInfo}</p>}
+            {pick.package.notes && <p className="mt-1 text-xs text-slate-600 leading-5">ℹ {pick.package.notes}</p>}
+          </div>
           <Field label="رقم الخط المراد الاشتراك له" required><input className="input" dir="ltr" value={phone} onChange={(event) => setPhone(event.target.value)} pattern="01[0-9]{9}" placeholder="01xxxxxxxxx" required /></Field>
-          <Field label="كلمة مرور تطبيق المزوّد" required><input className="input" type="password" dir="ltr" value={appPassword} onChange={(event) => setAppPassword(event.target.value)} placeholder="كلمة المرور الخاصة بالتطبيق" required /><p className="mt-1 text-xs text-slate-400">بتتشفّر على الخادم ومش بتتحفظ في المتصفح.</p></Field>
+          <Field label="كلمة مرور تطبيق المزوّد (اختياري)"><input className="input" type="password" dir="ltr" value={appPassword} onChange={(event) => setAppPassword(event.target.value)} placeholder="كلمة المرور الخاصة بالتطبيق" /><p className="mt-1 text-xs text-slate-400">بتتشفّر على الخادم بأمان.</p></Field>
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" className="btn btn-outline" onClick={closeModal}>إلغاء</button><button className="btn btn-primary" disabled={busy}>{busy ? 'جاري إنشاء الطلب…' : 'تأكيد الاشتراك'}</button></div>
         </form>}
       </Modal>
@@ -81,12 +87,53 @@ export function ProvidersCatalog() {
 }
 
 function PackageCard({ provider, package: pkg, onSubscribe }: { provider: Provider; package: Package; onSubscribe: () => void }) {
-  return <article className="card overflow-hidden transition hover:-translate-y-1 hover:shadow-lg">
-    <div className="flex items-center justify-between px-5 py-4" style={{ background: provider.secondaryColor ?? '#ecfeff' }}><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-lg font-black shadow-sm" style={{ color: provider.primaryColor }}>{provider.logo}</div><div><p className="text-[11px] font-bold" style={{ color: provider.primaryColor }}>{provider.name}</p><h2 className="font-black text-night">{pkg.name}</h2></div></div><span className="text-xs font-black text-slate-500">{pkg.durationDays} يوم</span></div>
-    <div className="p-5"><div className="grid grid-cols-2 gap-2"><Feature label="إنترنت" value={`${pkg.internetGB ?? '—'} GB`} /><Feature label="دقائق" value={`${pkg.minutes ?? '—'}`} /></div><div className="mt-5 flex items-end justify-between gap-3"><div><p className="text-xs text-slate-400">السعر الشهري</p><p className="text-2xl font-black text-brand-700">{fmtMoney(pkg.price)}</p></div><button className="btn btn-primary" onClick={onSubscribe}>اشترك الآن</button></div></div>
-  </article>;
+  return (
+    <article className="card overflow-hidden transition hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between">
+      <div>
+        <div className="flex items-center justify-between px-5 py-4" style={{ background: provider.secondaryColor ?? '#ecfeff' }}>
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-lg font-black shadow-sm" style={{ color: provider.primaryColor }}>{provider.logo}</div>
+            <div>
+              <p className="text-[11px] font-bold" style={{ color: provider.primaryColor }}>{provider.name}</p>
+              <h2 className="font-black text-night text-sm">{pkg.name}</h2>
+            </div>
+          </div>
+          <span className="text-xs font-black text-slate-500">{pkg.durationDays} يوم</span>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Feature label="إنترنت" value={`${pkg.internetGB ?? '—'} GB`} />
+            <Feature label="دقائق" value={`${pkg.minutes ?? '—'}`} />
+          </div>
+
+          {pkg.activationInfo && (
+            <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 font-bold">
+              ⏱ {pkg.activationInfo}
+            </div>
+          )}
+
+          {pkg.notes && (
+            <p className="text-[11px] text-slate-500 leading-5">
+              {pkg.notes}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="p-5 pt-0">
+        <div className="flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
+          <div>
+            <p className="text-xs text-slate-400">السعر</p>
+            <p className="text-2xl font-black text-brand-700">{fmtMoney(pkg.price)}</p>
+          </div>
+          <button className="btn btn-primary" onClick={onSubscribe}>اشترك الآن</button>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function Feature({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold text-slate-400">{label}</p><p className="mt-1 font-black text-night">{value}</p></div>;
+  return <div className="rounded-xl bg-slate-50 p-2.5"><p className="text-[10px] font-bold text-slate-400">{label}</p><p className="mt-0.5 font-black text-night text-sm">{value}</p></div>;
 }
