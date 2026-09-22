@@ -81,20 +81,23 @@ model Provider {
 }
 
 model Package {
-  id            String      @id @default(cuid())
-  providerId   String
-  provider     Provider    @relation(fields: [providerId], references: [id])
-  name         String
-  internetGB   Int
-  minutes      Int
-  price        Float
-  durationDays Int
-  reminderDays Int         @default(3)
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id             String         @id @default(cuid())
+  providerId    String
+  provider      Provider       @relation(fields: [providerId], references: [id])
+  name          String
+  internetGB    Int
+  minutes       Int
+  price         Float
+  durationDays  Int
+  reminderDays  Int            @default(3)
+  isActive      Boolean        @default(true)
+  notes         String?
+  activationInfo String?
+  bookingInfo   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   subscriptions Subscription[]
-  cycles         SubscriptionCycle[]
+  cycles        SubscriptionCycle[]
 }
 
 model Subscription {

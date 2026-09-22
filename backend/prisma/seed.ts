@@ -4,10 +4,463 @@ import { encryptCredential } from '../src/lib/crypto';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  if (process.env.NODE_ENV === 'production' || process.env.SEED_DEMO_DATA !== 'true') {
-    throw new Error('Demo seed is disabled. Set SEED_DEMO_DATA=true only in a non-production environment.');
+export async function seedCatalog() {
+  console.log('📦 Seeding Providers and Packages...');
+
+  // ── 1. Providers ─────────────────────────────
+  const providers = await Promise.all([
+    prisma.provider.upsert({
+      where: { slug: 'etisalat' },
+      update: { name: 'اتصالات أميراليد', logo: 'E', primaryColor: '#00843d', secondaryColor: '#e9f7ef', order: 1, isActive: true },
+      create: { slug: 'etisalat', name: 'اتصالات أميراليد', logo: 'E', primaryColor: '#00843d', secondaryColor: '#e9f7ef', order: 1, isActive: true },
+    }),
+    prisma.provider.upsert({
+      where: { slug: 'orange' },
+      update: { name: 'باقات أورنج', logo: 'O', primaryColor: '#ff7900', secondaryColor: '#fff4e8', order: 2, isActive: true },
+      create: { slug: 'orange', name: 'باقات أورنج', logo: 'O', primaryColor: '#ff7900', secondaryColor: '#fff4e8', order: 2, isActive: true },
+    }),
+    prisma.provider.upsert({
+      where: { slug: 'we' },
+      update: { name: 'WE GOLD', logo: 'W', primaryColor: '#5c2d91', secondaryColor: '#f5f0fa', order: 3, isActive: true },
+      create: { slug: 'we', name: 'WE GOLD', logo: 'W', primaryColor: '#5c2d91', secondaryColor: '#f5f0fa', order: 3, isActive: true },
+    }),
+    prisma.provider.upsert({
+      where: { slug: 'vodafone' },
+      update: { name: 'Vodafone RED', logo: 'V', primaryColor: '#e60000', secondaryColor: '#fff1f1', order: 4, isActive: true },
+      create: { slug: 'vodafone', name: 'Vodafone RED', logo: 'V', primaryColor: '#e60000', secondaryColor: '#fff1f1', order: 4, isActive: true },
+    }),
+  ]);
+
+  const etisalat = providers[0]!, orange = providers[1]!, we = providers[2]!, vodafone = providers[3]!;
+
+  // ── 2. Packages Definitions ───────────────────
+  const packageDefs = [
+    // ── اتصالات أميراليد (7 باقات)
+    {
+      providerId: etisalat.id,
+      name: '14 جيجا + 1,500 دقيقة',
+      internetGB: 14,
+      minutes: 1500,
+      price: 280,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+    {
+      providerId: etisalat.id,
+      name: '20 جيجا + 1,500 دقيقة',
+      internetGB: 20,
+      minutes: 1500,
+      price: 350,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+    {
+      providerId: etisalat.id,
+      name: '25 جيجا + 1,500 دقيقة',
+      internetGB: 25,
+      minutes: 1500,
+      price: 380,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+    {
+      providerId: etisalat.id,
+      name: '30 جيجا + 1,500 دقيقة',
+      internetGB: 30,
+      minutes: 1500,
+      price: 400,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+    {
+      providerId: etisalat.id,
+      name: '35 جيجا + 1,500 دقيقة',
+      internetGB: 35,
+      minutes: 1500,
+      price: 430,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+    {
+      providerId: etisalat.id,
+      name: '40 جيجا + 1,500 دقيقة',
+      internetGB: 40,
+      minutes: 1500,
+      price: 485,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+    {
+      providerId: etisalat.id,
+      name: '50 جيجا + 2,000 دقيقة',
+      internetGB: 50,
+      minutes: 2000,
+      price: 540,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'الخط على نظام 14 قرش. لا توجد أي مديونية على الخط. الخط مسجل باسم صاحبه.',
+      activationInfo: 'التفعيل: يوم 1 أو يوم 15 من كل شهر.',
+      bookingInfo: 'فترات الحجز: 25 - 30، و10 - 14 من كل شهر.',
+    },
+
+    // ── باقات أورنج (4 باقات)
+    {
+      providerId: orange.id,
+      name: '10 جيجا + 1,000 دقيقة',
+      internetGB: 10,
+      minutes: 1000,
+      price: 280,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'المطلوب: الرقم + الكاش.',
+      activationInfo: 'التفعيل: يوم 1 من كل شهر.',
+      bookingInfo: 'الحجز متاح الآن وفق الفترات المحددة للحجز.',
+    },
+    {
+      providerId: orange.id,
+      name: '14 جيجا + 2,000 دقيقة',
+      internetGB: 14,
+      minutes: 2000,
+      price: 335,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'المطلوب: الرقم + الكاش.',
+      activationInfo: 'التفعيل: يوم 1 من كل شهر.',
+      bookingInfo: 'الحجز متاح الآن وفق الفترات المحددة للحجز.',
+    },
+    {
+      providerId: orange.id,
+      name: '20 جيجا + 2,000 دقيقة',
+      internetGB: 20,
+      minutes: 2000,
+      price: 395,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'المطلوب: الرقم + الكاش.',
+      activationInfo: 'التفعيل: يوم 1 من كل شهر.',
+      bookingInfo: 'الحجز متاح الآن وفق الفترات المحددة للحجز.',
+    },
+    {
+      providerId: orange.id,
+      name: '30 جيجا + 2,000 دقيقة',
+      internetGB: 30,
+      minutes: 2000,
+      price: 500,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'المطلوب: الرقم + الكاش.',
+      activationInfo: 'التفعيل: يوم 1 من كل شهر.',
+      bookingInfo: 'الحجز متاح الآن وفق الفترات المحددة للحجز.',
+    },
+
+    // ── WE GOLD (7 باقات)
+    {
+      providerId: we.id,
+      name: '20 جيجا + 1,500 دقيقة',
+      internetGB: 20,
+      minutes: 1500,
+      price: 300,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل.',
+    },
+    {
+      providerId: we.id,
+      name: '30 جيجا + 1,500 دقيقة',
+      internetGB: 30,
+      minutes: 1500,
+      price: 350,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل.',
+    },
+    {
+      providerId: we.id,
+      name: '40 جيجا + 1,500 دقيقة',
+      internetGB: 40,
+      minutes: 1500,
+      price: 430,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل.',
+    },
+    {
+      providerId: we.id,
+      name: '50 جيجا + 1,500 دقيقة',
+      internetGB: 50,
+      minutes: 1500,
+      price: 490,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل.',
+    },
+    {
+      providerId: we.id,
+      name: '60 جيجا + 1,500 دقيقة',
+      internetGB: 60,
+      minutes: 1500,
+      price: 570,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل.',
+    },
+    {
+      providerId: we.id,
+      name: '70 جيجا + 2,000 دقيقة',
+      internetGB: 70,
+      minutes: 2000,
+      price: 670,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل.',
+    },
+    {
+      providerId: we.id,
+      name: '100 جيجا + 2,000 دقيقة',
+      internetGB: 100,
+      minutes: 2000,
+      price: 950,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'مسموح الاشتراك حتى مع وجود سلفة على الخط. لا يشترط أن يكون الخط باسم المشترك. الدقيقة لأي شبكة والميجا لأي موقع.',
+      activationInfo: 'التفعيل: يوم 1 ويوم 16 من كل شهر.',
+      bookingInfo: 'الباقة لمدة شهر كامل بسعر 950 جنيه.',
+    },
+
+    // ── Vodafone RED — باقات ثابتة لمدة 8 شهور (8 باقات)
+    {
+      providerId: vodafone.id,
+      name: 'باقة 1: 25 جيجا + 3,500 دقيقة',
+      internetGB: 25,
+      minutes: 3500,
+      price: 380,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 2: 30 جيجا + 4,000 دقيقة',
+      internetGB: 30,
+      minutes: 4000,
+      price: 430,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 3: 35 جيجا + 4,500 دقيقة',
+      internetGB: 35,
+      minutes: 4500,
+      price: 480,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 4: 40 جيجا + 5,000 دقيقة',
+      internetGB: 40,
+      minutes: 5000,
+      price: 530,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 5: 50 جيجا + 6,000 دقيقة',
+      internetGB: 50,
+      minutes: 6000,
+      price: 580,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 6: 60 جيجا + 7,000 دقيقة',
+      internetGB: 60,
+      minutes: 7000,
+      price: 630,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 7: 70 جيجا + 8,000 دقيقة',
+      internetGB: 70,
+      minutes: 8000,
+      price: 680,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+    {
+      providerId: vodafone.id,
+      name: 'باقة 8: 85 جيجا + 9,000 دقيقة',
+      internetGB: 85,
+      minutes: 9000,
+      price: 730,
+      durationDays: 30,
+      reminderDays: 3,
+      notes: 'العرض الخاص - باقات ثابتة لمدة 8 شهور بدون زيادة في السعر. الأماكن والخطوط المتاحة للتفعيل محدودة، وأولوية التفعيل بأسبقية الحجز.',
+      activationInfo: 'التفعيل: يوم 7 ويوم 25 من كل شهر.',
+      bookingInfo: 'الحجز: من يوم 18 إلى يوم 23، ومن يوم 1 إلى يوم 5.',
+    },
+  ];
+
+  // Disable old obsolete packages not in new list
+  const newNamesByProvider = new Map<string, string[]>();
+  for (const p of packageDefs) {
+    const list = newNamesByProvider.get(p.providerId) || [];
+    list.push(p.name);
+    newNamesByProvider.set(p.providerId, list);
   }
+
+  for (const [providerId, names] of newNamesByProvider.entries()) {
+    await prisma.package.updateMany({
+      where: {
+        providerId,
+        name: { notIn: names },
+      },
+      data: { isActive: false },
+    });
+  }
+
+  // Upsert all defined packages
+  for (const p of packageDefs) {
+    const existing = await prisma.package.findFirst({ where: { providerId: p.providerId, name: p.name } });
+    if (existing) {
+      await prisma.package.update({
+        where: { id: existing.id },
+        data: {
+          ...p,
+          isActive: true,
+        },
+      });
+    } else {
+      await prisma.package.create({ data: p });
+    }
+  }
+
+  // ── 3. Payment Methods ─────────────────────────
+  await Promise.all([
+    prisma.paymentMethod.upsert({
+      where: { id: 'instapay' },
+      update: {
+        name: 'InstaPay (إنستا باي)',
+        accountIdentifier: 'elmo7eb@instapay / 01550356806',
+        instructions: 'حوّل المبلغ عبر تطبيق إنستا باي على المعرف elmo7eb@instapay أو الرقم 01550356806 أو من خلال الرابط: https://ipn.eg/S/elmo7eb/instapay/1aki2O ثم ارفع سكرين شوت بالتحويل للتأكيد.',
+        sortOrder: 1,
+        isActive: true,
+      },
+      create: {
+        id: 'instapay',
+        name: 'InstaPay (إنستا باي)',
+        accountIdentifier: 'elmo7eb@instapay / 01550356806',
+        instructions: 'حوّل المبلغ عبر تطبيق إنستا باي على المعرف elmo7eb@instapay أو الرقم 01550356806 أو من خلال الرابط: https://ipn.eg/S/elmo7eb/instapay/1aki2O ثم ارفع سكرين شوت بالتحويل للتأكيد.',
+        sortOrder: 1,
+        isActive: true,
+      },
+    }),
+    prisma.paymentMethod.upsert({
+      where: { id: 'vodafone-cash' },
+      update: {
+        name: 'Vodafone Cash (فودافون كاش)',
+        accountIdentifier: '01550356806',
+        instructions: 'حوّل المبلغ على محفظة فودافون كاش على الرقم 01550356806 ثم ارفع سكرين شوت بالتحويل للتأكيد.',
+        sortOrder: 2,
+        isActive: true,
+      },
+      create: {
+        id: 'vodafone-cash',
+        name: 'Vodafone Cash (فودافون كاش)',
+        accountIdentifier: '01550356806',
+        instructions: 'حوّل المبلغ على محفظة فودافون كاش على الرقم 01550356806 ثم ارفع سكرين شوت بالتحويل للتأكيد.',
+        sortOrder: 2,
+        isActive: true,
+      },
+    }),
+    prisma.paymentMethod.upsert({
+      where: { id: 'orange-cash' },
+      update: {
+        name: 'Orange Cash (أورنج كاش)',
+        accountIdentifier: '01550356806',
+        instructions: 'حوّل المبلغ على محفظة أورنج كاش على الرقم 01550356806 ثم ارفع سكرين شوت بالتحويل للتأكيد.',
+        sortOrder: 3,
+        isActive: true,
+      },
+      create: {
+        id: 'orange-cash',
+        name: 'Orange Cash (أورنج كاش)',
+        accountIdentifier: '01550356806',
+        instructions: 'حوّل المبلغ على محفظة أورنج كاش على الرقم 01550356806 ثم ارفع سكرين شوت بالتحويل للتأكيد.',
+        sortOrder: 3,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  console.log('✅ Catalog Seed complete! (4 Providers, 26 Packages, 3 Manual Payment Methods)');
+}
+
+async function main() {
+  // Always seed/update catalog idempotently
+  await seedCatalog();
+
+  // Demo user data is strictly optional and only seeded when explicitly enabled in non-prod
+  if (process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.SEED_DEMO_DATA !== 'true') {
+    console.log('ℹ️ Demo users seed skipped (Disabled in production / non-demo mode).');
+    return;
+  }
+
   const seedPassword = process.env.SEED_PASSWORD;
   const adminPhone = process.env.SEED_ADMIN_PHONE;
   const merchantPhone = process.env.SEED_MERCHANT_PHONE;
@@ -15,60 +468,23 @@ async function main() {
   const merchantCustomerPhone = process.env.SEED_MERCHANT_CUSTOMER_PHONE;
   const sampleAppPassword = process.env.SEED_APP_PASSWORD;
   if (!seedPassword || seedPassword.length < 12 || !adminPhone || !merchantPhone || !customerPhone || !merchantCustomerPhone || !sampleAppPassword) {
-    throw new Error('Demo seed requires explicit SEED_* values.');
+    console.log('ℹ️ Demo users seed skipped: SEED_* environment variables not set.');
+    return;
   }
+
   const passwordHash = await bcrypt.hash(seedPassword, 10);
-
-  // ── Providers ─────────────────────────────
-  const providers = await Promise.all(
-    ([
-      { slug: 'vodafone', name: 'Vodafone مصر', logo: 'V', primaryColor: '#e60000', secondaryColor: '#fff1f1', order: 1 },
-      { slug: 'orange', name: 'Orange مصر', logo: 'O', primaryColor: '#ff7900', secondaryColor: '#fff4e8', order: 2 },
-      { slug: 'etisalat', name: 'اتصالات مصر', logo: 'E', primaryColor: '#00843d', secondaryColor: '#e9f7ef', order: 3 },
-    ].map(async (p) => prisma.provider.upsert({ where: { slug: p.slug }, update: p, create: p }))),
-  );
-
-  const vodafone = providers[0]!, orange = providers[1]!, etisalat = providers[2]!;
-
-  // ── Packages ─────────────────────────────
-  const packageDefs = [
-    { providerId: vodafone.id, name: 'باقة 40 GB', internetGB:40, minutes:500, price: 250, durationDays: 30, reminderDays: 3 },
-    { providerId: vodafone.id, name: 'باقة 80 GB', internetGB:80, minutes:1000, price:400, durationDays: 30, reminderDays: 3 },
-    { providerId: orange.id, name: 'باقة 30 GB', internetGB:30, minutes:600, price:220, durationDays:30, reminderDays:3 },
-    { providerId: orange.id, name: 'باقة 60 GB', internetGB:60, minutes:1200, price:350, durationDays:30, reminderDays:3 },
-    { providerId: etisalat.id, name: 'باقة 25 GB', internetGB:25, minutes:400, price:200, durationDays:30, reminderDays:3 },
-    { providerId: etisalat.id, name: 'باقة 50 GB', internetGB:50, minutes:800, price:300, durationDays:30, reminderDays:3 },
-  ];
-
-  const packages = [];
-  for (const p of packageDefs) {
-    const existing = await prisma.package.findFirst({ where: { providerId: p.providerId, name: p.name } });
-    if (existing) {
-      packages.push(existing);
-    } else {
-      packages.push(await prisma.package.create({ data: p }));
-    }
-  }
-
-  // ── Payment methods ─────────────────────
-  const methods = await Promise.all([
-    prisma.paymentMethod.upsert({ where: { id: 'instapay' }, update: {}, create: { id: 'instapay', name: 'InstaPay', accountIdentifier: '01012345678', instructions: 'حوّل المبلغ على رقم InstaPay ده وبعد كده ارفع صورة التحويل.', sortOrder:  1 } }),
-    prisma.paymentMethod.upsert({ where: { id: 'vodafone-cash' }, update: {}, create: { id: 'vodafone-cash', name: 'Vodafone Cash', accountIdentifier: '01012345678', instructions: 'ابعت المبلغ على محفظة Vodafone Cash.', sortOrder:2 } }),
-    prisma.paymentMethod.upsert({ where: { id: 'orange-cash' }, update: {}, create: { id: 'orange-cash', name: 'Orange Cash', accountIdentifier: '01112345678', instructions: 'ابعت المبلغ على محفظة Orange Cash.', sortOrder:3 } }),
-    prisma.paymentMethod.upsert({ where: { id: 'wallet' }, update: {}, create: { id: 'wallet', name: 'محفظة إلكترونية', accountIdentifier: 'Account-CIB-123', instructions: 'حوّل على المحفظة الإلكترونية وارفع الإثبات.', sortOrder:4 } }),
-  ]);
 
   // ── Users ──────────────────────────────
   const admin = await prisma.user.upsert({
     where: { phone: adminPhone },
     update: {},
-    create: { phone: adminPhone, passwordHash, name: 'أدمن المنصة', role: "ADMIN" },
+    create: { phone: adminPhone, passwordHash, name: 'أدمن المنصة', role: 'ADMIN' },
   });
 
   const merchantUser = await prisma.user.upsert({
     where: { phone: merchantPhone },
     update: {},
-    create: { phone: merchantPhone, passwordHash, name: 'محمود الحداد', role: "MERCHANT" },
+    create: { phone: merchantPhone, passwordHash, name: 'محمود الحداد', role: 'MERCHANT' },
   });
 
   let merchant = await prisma.merchant.findUnique({ where: { userId: merchantUser.id } });
@@ -79,94 +495,21 @@ async function main() {
   const customer = await prisma.user.upsert({
     where: { phone: customerPhone },
     update: {},
-    create: { phone: customerPhone, passwordHash, name: 'أحمد السيد', role: "CUSTOMER" },
+    create: { phone: customerPhone, passwordHash, name: 'أحمد السيد', role: 'CUSTOMER' },
   });
 
-  const merchantCustomer = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { phone: merchantCustomerPhone },
     update: {},
-    create: { phone: merchantCustomerPhone, passwordHash, name: 'سارة محمد', role: "CUSTOMER", source: "MERCHANT", merchantId: merchant.id },
+    create: { phone: merchantCustomerPhone, passwordHash, name: 'سارة محمد', role: 'CUSTOMER', source: 'MERCHANT', merchantId: merchant.id },
   });
 
-  // ── Sample subscription for customer ─────
-  const existingSub = await prisma.subscription.findFirst({ where: { userId: customer.id } });
-  if (!existingSub) {
-    const sub = await prisma.subscription.create({
-      data: {
-        userId: customer.id,
-        providerId: vodafone.id,
-        packageId: packages[0]!.id,
-        phoneNumber: customerPhone,
-        status: "ACTIVE",
-        startDate: new Date(Date.now() -  10 * 24 * 3600 * 1000),
-        renewalDate: new Date(Date.now() +  20 * 24 * 3600 * 1000),
-        cycles: { create: { packageId: packages[0]!.id, status: "ACTIVE", startDate: new Date(Date.now() - 10 *  24 *  3600 * 1000), endDate: new Date(Date.now() + 20 * 24 * 3600 * 1000) } },
-      },
-    });
-
-    await prisma.payment.create({
-      data: {
-        userId: customer.id,
-        subscriptionId: sub.id,
-        amount: packages[0]!.price,
-        paymentMethodId: 'instapay',
-        paidFromPhone: customerPhone,
-        screenshotUrl: null,
-        screenshotPath: null,
-        status: "APPROVED",
-        reviewedBy: admin.id,
-        reviewedAt: new Date(),
-      },
-    });
-
-    await prisma.auditLog.create({ data: { actorId: admin.id, actorRole: "ADMIN", action: 'payment.approve', entityType: 'Payment', entityId: sub.id, details: 'Seed workflow' } });
-  }
-
-  // ── Merchant obligation ────────────────
-  const hasObligation = await prisma.merchantPaymentObligation.findFirst({ where: { merchantId: merchant.id } });
-  if (!hasObligation) {
-    const dueDate = new Date(Date.now() +  5 * 24 * 3600 * 1000);
-    const overdue = new Date(Date.now() -  2 *  24 * 3600 * 1000);
-    await prisma.merchantPaymentObligation.createMany({
-      data: [
-        { merchantId: merchant.id, amount: 2000, dueDate, status: 'PENDING' },
-        { merchantId: merchant.id, amount:1500, dueDate: overdue, status: 'OVERDUE' },
-      ],
-    });
-  }
-
-  // ── Encrypted sample credential (demo — admin can decrypt on demand )
-  const sampleCred = await prisma.customerCredential.findFirst({ where: { userId: customer.id } });
-  if (!sampleCred) {
-    const encrypted = encryptCredential(sampleAppPassword);
-    await prisma.customerCredential.create({
-      data: {
-        userId: customer.id,
-        providerId: vodafone.id,
-        encrypted: encrypted.encrypted,
-        iv: encrypted.iv,
-        authTag: encrypted.authTag,
-        subtitle: 'كلمة مرور تطبيق فودافون (تجريبية )',
-      },
-    });
-  }
-
-  // ── Sample notifications ────────────────
-  const notifCount = await prisma.notification.count({ where: { userId: customer.id } });
-  if (notifCount === 0) {
-    await prisma.notification.createMany({
-      data: [
-        { userId: customer.id, type: 'payment.approved', title: 'تم تأكيد الدفع ✅', message: 'باقة 40 GB اتصلت. استمتع بالنت!' },
-        { userId: customer.id, type: 'subscription.expiring', title: 'الباقة هتخلص قريب', message: 'باقة 40 GB هتنتهي بعد 20 يوم. جدد قبل معاد الانتهاء.' },
-        { userId: admin.id, role: "ADMIN", type: 'payment.pending', title: 'دفعة مستنية مراجعة', message: 'في دفعة جديدة مستنية مراجعتك.' },
-      ],
-    });
-  }
-
-  console.log('✅ Seed complete!');
-  console.log('Seed complete. Demo credentials were supplied through SEED_* environment variables.');
+  console.log('✅ Demo users seeded successfully.');
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

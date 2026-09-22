@@ -1,33 +1,27 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { paymentApi, subscriptionApi, catalogApi } from '../../services/api';
 import { Payment, PaymentMethod, Subscription } from '../../lib/api';
 import { Badge, Empty, Field, Spinner, Stat, useToast } from '../../components/ui';
 import { fmtDateTime, fmtMoney } from '../../lib/format';
 
 export function MyPayments() {
-  const [searchParams] = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [paymobConfig, setPaymobConfig] = useState<{ paymobAvailable: boolean; environment: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [paymobBusy, setPaymobBusy] = useState(false);
 
-  // Tab: 'paymob' (Online) or 'manual' (Transfer + Receipt)
-  const [paymentMode, setPaymentMode] = useState<'paymob' | 'manual'>('paymob');
-
-  // Manual payment state
-  const [amount, setAmount] = useState('');
+  // Form State
   const [subId, setSubId] = useState('');
   const [methodId, setMethodId] = useState('');
   const [fromPhone, setFromPhone] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
 
-  // Paymob selected subscription
-  const [paymobSubId, setPaymobSubId] = useState('');
+  // Success state after submitting
+  const [lastSubmitted, setLastSubmitted] = useState<Payment | null>(null);
 
   const toast = useToast();
 
@@ -36,88 +30,74 @@ export function MyPayments() {
       paymentApi.mine().then((data) => setPayments(data.payments)).catch(() => undefined),
       subscriptionApi.mine().then((data) => setSubs(data.subscriptions)).catch(() => undefined),
       catalogApi.paymentMethods().then((data) => setMethods(data.paymentMethods)).catch(() => undefined),
-      paymentApi.config().then(setPaymobConfig).catch(() => undefined),
     ]).finally(() => setLoading(false));
   }
 
   useEffect(load, []);
 
-  // Handle Paymob redirect query params
+  // Cleanup preview URL
   useEffect(() => {
-    const statusParam = searchParams.get('status');
-    const ref = searchParams.get('ref');
-    if (statusParam === 'processing' || statusParam === 'success') {
-      if (ref) {
-        paymentApi.paymobStatus(ref).then((res) => {
-          if (res.isPaid) {
-            toast.toast('success', 'تم تأكيد الدفع الإلكتروني وتفعيل الاشتراك بنجاح!');
-          }
-          load();
-        }).catch(() => undefined);
-      }
-    } else if (statusParam === 'failed') {
-      toast.toast('error', 'فشلت عملية الدفع الإلكتروني أو تم إلغاؤها');
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
     }
-  }, [searchParams]);
+  }, [file]);
 
-  const payableSubs = subs.filter((subscription) => subscription.status === 'PENDING_PAYMENT' || subscription.status === 'PENDING_REVIEW');
-  const selectedMethod = methods.find((method) => method.id === methodId);
-  const pendingCount = payments.filter((payment) => payment.status === 'PENDING').length;
-  const approvedTotal = payments.filter((payment) => payment.status === 'APPROVED' || payment.status === 'PAID').reduce((total, payment) => total + payment.amount, 0);
+  const payableSubs = subs.filter((s) => s.status === 'PENDING_PAYMENT' || s.status === 'PENDING_REVIEW');
+  const selectedSub = subs.find((s) => s.id === subId);
+  const selectedMethod = methods.find((m) => m.id === methodId);
+  const pendingCount = payments.filter((p) => p.status === 'PENDING').length;
+  const approvedTotal = payments.filter((p) => p.status === 'APPROVED' || p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
 
-  function selectSubscription(id: string) {
-    setSubId(id);
-    const price = subs.find((subscription) => subscription.id === id)?.package?.price;
-    if (price) setAmount(String(price));
+  function handleCopy(text: string, label: string) {
+    void navigator.clipboard.writeText(text);
+    toast.toast('success', `تم نسخ ${label}: ${text}`);
   }
 
-  async function submitManual(event: FormEvent<HTMLFormElement>) {
+  async function submitManualPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!subId || !methodId || !amount || !file) {
-      toast.toast('error', 'أكمل كل بيانات الدفع');
+    if (!subId) {
+      toast.toast('error', 'يرجى اختيار الاشتراك المطلوب دفعه');
       return;
     }
+    if (!methodId) {
+      toast.toast('error', 'يرجى اختيار وسيلة الدفع المستخدمة');
+      return;
+    }
+    if (!file) {
+      toast.toast('error', 'يرجى إرفاق صورة إيصال التحويل');
+      return;
+    }
+
     const form = new FormData();
     form.append('subscriptionId', subId);
     form.append('paymentMethodId', methodId);
-    form.append('amount', amount);
-    if (fromPhone) form.append('paidFromPhone', fromPhone);
+    if (selectedSub?.package?.price) {
+      form.append('amount', String(selectedSub.package.price));
+    }
+    if (fromPhone) {
+      form.append('paidFromPhone', fromPhone);
+    }
     form.append('screenshot', file);
+
     setBusy(true);
     try {
-      await paymentApi.submit(form);
-      toast.toast('success', 'تم إرسال إثبات الدفع للمراجعة');
-      setAmount('');
+      const res = await paymentApi.submit(form);
+      setLastSubmitted(res.payment);
+      toast.toast('success', 'تم إرسال إثبات الدفع بنجاح وهو الآن قيد المراجعة');
       setSubId('');
       setMethodId('');
       setFromPhone('');
       setFile(null);
-      setFileInputKey((key) => key + 1);
+      setFileInputKey((k) => k + 1);
       load();
     } catch (error: any) {
-      toast.toast('error', error?.message ?? 'فشل إرسال الدفع');
+      toast.toast('error', error?.message ?? 'فشل إرسال إثبات الدفع');
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function handlePaymobCheckout(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!paymobSubId) {
-      toast.toast('error', 'يرجى اختيار الاشتراك أولاً');
-      return;
-    }
-    setPaymobBusy(true);
-    try {
-      const res = await paymentApi.initiatePaymob(paymobSubId);
-      if (res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
-      } else {
-        throw new Error('تعذر فتح صفحة الدفع الإلكتروني');
-      }
-    } catch (error: any) {
-      toast.toast('error', error?.message ?? 'فشل بدء الدفع الإلكتروني');
-      setPaymobBusy(false);
     }
   }
 
@@ -125,257 +105,340 @@ export function MyPayments() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="mb-2 text-sm font-bold text-brand-700">الدفع الآمن</p>
-          <h1 className="section-title mb-1">مدفوعاتي</h1>
-          <p className="text-sm text-slate-500">اختر الدفع الإلكتروني الفوري عبر Paymob أو التحويل اليدوي مع إرفاق الإيصال.</p>
+          <p className="mb-1 text-sm font-bold text-brand-700">💵 الدفع اليدوي الآمن</p>
+          <h1 className="section-title mb-1">مدفوعاتي واشتراكاتي</h1>
+          <p className="text-sm text-slate-500">حوّل المبلغ لحساب الخدمة، ثم ارفع صورة الإيصال ليتم تفعيل باقتك فور المراجعة.</p>
         </div>
         <Link to="/subscriptions" className="btn btn-outline">عرض الاشتراكات</Link>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label="كل المدفوعات" value={payments.length} icon="↕" />
-        <Stat label="بانتظار المراجعة" value={pendingCount} icon="◷" />
-        <Stat label="إجمالي المقبول" value={fmtMoney(approvedTotal)} icon="✓" />
+        <Stat label="إجمالي المدفوعات" value={payments.length} icon="↕" />
+        <Stat label="قيد المراجعة" value={pendingCount} icon="◷" />
+        <Stat label="الاشتراكات المفعلة" value={fmtMoney(approvedTotal)} icon="✓" />
       </div>
 
-      {/* Payment Method Selector Tabs */}
-      <div className="flex rounded-2xl bg-slate-100 p-1.5 font-bold">
-        <button
-          type="button"
-          className={`flex-1 rounded-xl py-3 text-sm transition-all ${paymentMode === 'paymob' ? 'bg-white text-brand-700 shadow-sm font-black' : 'text-slate-600 hover:text-night'}`}
-          onClick={() => setPaymentMode('paymob')}
-        >
-          💳 دفع إلكتروني فوري (Paymob)
-        </button>
-        <button
-          type="button"
-          className={`flex-1 rounded-xl py-3 text-sm transition-all ${paymentMode === 'manual' ? 'bg-white text-brand-700 shadow-sm font-black' : 'text-slate-600 hover:text-night'}`}
-          onClick={() => setPaymentMode('manual')}
-        >
-          📱 تحويل يدوي وإرفاق إيصال
-        </button>
-      </div>
-
-      {paymentMode === 'paymob' ? (
-        /* Paymob Flow */
-        <div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-          <form className="card p-5 sm:p-6" onSubmit={handlePaymobCheckout}>
-            <div className="mb-5">
-              <div className="flex items-center gap-2">
-                <span className="badge badge-blue font-bold">دفع إلكتروني آمن</span>
-                {paymobConfig?.environment === 'sandbox' && <span className="badge badge-amber font-bold">Sandbox Test Mode</span>}
-              </div>
-              <h2 className="mt-2 text-lg font-black text-night">الدفع المباشر عبر Paymob</h2>
-              <p className="mt-1 text-xs text-slate-500">يقبل البطاقات البنكية (فيزا / ماستركارد / ميزة) والمحافظ الإلكترونية وتفعيل فوري للاشتراك بمجرد إتمام العملية.</p>
-            </div>
-
-            {payableSubs.length === 0 ? (
-              <div className="rounded-2xl bg-slate-50 p-5 text-center">
-                <p className="font-bold text-slate-600">مفيش اشتراك محتاج دفع دلوقتي</p>
-                <Link to="/providers" className="mt-2 inline-block text-sm font-black text-brand-700">استعرض الباقات</Link>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Field label="اختر الاشتراك المطلوب دفعه" required>
-                  <select
-                    className="input"
-                    value={paymobSubId}
-                    onChange={(e) => setPaymobSubId(e.target.value)}
-                    required
-                  >
-                    <option value="">اختر اشتراكاً…</option>
-                    {payableSubs.map((subscription) => (
-                      <option key={subscription.id} value={subscription.id}>
-                        {subscription.package?.name} · {subscription.phoneNumber} ({fmtMoney(subscription.package?.price)})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                {paymobSubId && (
-                  <div className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
-                    <p className="text-xs font-bold text-slate-500">المبلغ الإجمالي للدفع:</p>
-                    <p className="text-2xl font-black text-brand-700">
-                      {fmtMoney(payableSubs.find((s) => s.id === paymobSubId)?.package?.price)}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-600">يتم احتساب السعر رسمياً وتفعيله تلقائياً مع إضافة نقاط الولاء ⭐</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="btn btn-primary w-full py-3.5 text-base font-black shadow-lg shadow-brand-700/20"
-                  disabled={paymobBusy || !paymobSubId}
-                >
-                  {paymobBusy ? 'جاري التحويل لبوابة Paymob…' : 'الانتقال للدفع الآمن الآن ←'}
-                </button>
-              </div>
-            )}
-          </form>
-
-          <div className="card overflow-hidden">
-            <div className="border-b border-slate-100 bg-night p-5 text-white">
-              <p className="text-sm font-bold text-sky-300">طريقة الدفع الفوري</p>
-              <h2 className="mt-1 text-xl font-black">خطوات الدفع عبر Paymob</h2>
-            </div>
-            <div className="space-y-5 p-5">
-              <Step number="01" title="اختر الباقة" text="حدد باقتك وسيتم جلب السعر الرسمي تلقائياً من السيرفر." />
-              <Step number="02" title="ادفع عبر Paymob" text="اختر وسيلة الدفع المناسبة (بطاقة ائتمان، كارت ميزة، محفظة إلكترونية)." />
-              <Step number="03" title="تفعيل لحظي" text="يتأكد السيرفر من إشعار الدفع الموثق عبر Webhook ويتم تفعيل باقتك فوراً." />
-            </div>
+      {/* Payment Instructions & Official Accounts */}
+      <section className="card overflow-hidden p-5 sm:p-6">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-lg font-black text-night">بيانات التحويل الرسمية</h2>
+            <p className="mt-1 text-xs text-slate-500">استخدم أحد الحسابات المعتمدة أدناه للتحويل واحتفظ بلقطة الشاشة (Screenshot) لرفعها:</p>
           </div>
+          <span className="badge badge-green font-black">حسابات معتمدة</span>
         </div>
-      ) : (
-        /* Manual Transfer Flow */
-        <div className="space-y-6">
-          <section className="card p-5 sm:p-6">
+
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          {/* InstaPay */}
+          <article className="relative flex flex-col justify-between rounded-2xl border-2 border-brand-200 bg-brand-50/70 p-5 shadow-sm">
             <div>
-              <h2 className="text-lg font-black text-night">بيانات التحويل المعتمدة</h2>
-              <p className="mt-1 text-xs leading-6 text-slate-500">استخدم الرقم أو الحساب الظاهر هنا فقط عند التحويل، ثم ارفع صورة الإيصال.</p>
-            </div>
-            {methods.length === 0 ? (
-              <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm font-bold text-amber-800">الإدارة لم تضف وسيلة دفع متاحة حتى الآن.</p>
-            ) : (
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {methods.map((method) => (
-                  <article key={method.id} className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
-                    <p className="font-black text-night">{method.name}</p>
-                    {method.accountIdentifier ? (
-                      <p className="mt-2 text-xl font-black tracking-wide text-brand-800" dir="ltr">{method.accountIdentifier}</p>
-                    ) : (
-                      <p className="mt-2 text-sm font-bold text-amber-700">رقم الحساب غير مضاف من الإدارة</p>
-                    )}
-                    {method.instructions && <p className="mt-2 text-xs leading-6 text-slate-600">{method.instructions}</p>}
-                  </article>
-                ))}
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">⚡</span>
+                <span className="rounded-full bg-brand-600 px-2.5 py-0.5 text-[10px] font-black text-white">الأسرع والمفضل</span>
               </div>
-            )}
-          </section>
+              <h3 className="mt-3 text-base font-black text-night">InstaPay (إنستا باي)</h3>
+              <p className="mt-1 text-xs text-slate-600">تحويل فوري بدون رسوم من أي بنك أو محفظة.</p>
 
-          <div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-            <form className="card p-5 sm:p-6" onSubmit={submitManual}>
-              <div className="mb-5">
-                <h2 className="text-lg font-black text-night">إرسال إثبات دفع</h2>
-                <p className="mt-1 text-xs text-slate-500">بيانات التحويل بتوصل للإدارة للمراجعة وتفعيل الاشتراك يدوياً.</p>
-              </div>
-              {payableSubs.length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 p-5 text-center">
-                  <p className="font-bold text-slate-600">مفيش اشتراك محتاج دفع دلوقتي</p>
-                  <Link to="/providers" className="mt-2 inline-block text-sm font-black text-brand-700">استعرض الباقات</Link>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Field label="الاشتراك" required>
-                    <select className="input" value={subId} onChange={(event) => selectSubscription(event.target.value)} required>
-                      <option value="">اختر اشتراكاً…</option>
-                      {payableSubs.map((subscription) => (
-                        <option key={subscription.id} value={subscription.id}>
-                          {subscription.package?.name} · {subscription.phoneNumber}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-
-                  <Field label="وسيلة الدفع" required>
-                    <select className="input" value={methodId} onChange={(event) => setMethodId(event.target.value)} required>
-                      <option value="">اختر الوسيلة…</option>
-                      {methods.map((method) => (
-                        <option key={method.id} value={method.id}>{method.name}</option>
-                      ))}
-                    </select>
-                    {selectedMethod && (
-                      <div className="mt-2 rounded-xl bg-brand-50 p-3 text-xs leading-6 text-brand-900">
-                        <p className="font-black" dir="ltr">{selectedMethod.accountIdentifier}</p>
-                        <p>{selectedMethod.instructions}</p>
-                      </div>
-                    )}
-                  </Field>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="المبلغ (ج.م)" required>
-                      <input className="input" dir="ltr" type="number" min="1" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="مثال: 250" required />
-                    </Field>
-                    <Field label="المحول من رقم">
-                      <input className="input" dir="ltr" value={fromPhone} onChange={(event) => setFromPhone(event.target.value)} pattern="01[0-9]{9}" placeholder="01xxxxxxxxx" />
-                    </Field>
+              <div className="mt-4 space-y-2">
+                <div className="rounded-xl bg-white p-2.5 border border-brand-100">
+                  <p className="text-[10px] font-bold text-slate-400">معرف إنستا باي (IPA):</p>
+                  <div className="flex items-center justify-between gap-1 mt-0.5">
+                    <span className="font-black text-brand-800 text-sm" dir="ltr">elmo7eb@instapay</span>
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-brand-600 hover:text-brand-800"
+                      onClick={() => handleCopy('elmo7eb@instapay', 'معرف إنستا باي')}
+                    >
+                      نسخ
+                    </button>
                   </div>
+                </div>
 
-                  <Field label="صورة إثبات التحويل" required>
-                    <input
-                      key={fileInputKey}
-                      className="input"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                      required
-                    />
-                    {file && <p className="mt-1 text-xs font-bold text-emerald-700">تم اختيار: {file.name}</p>}
-                  </Field>
+                <div className="rounded-xl bg-white p-2.5 border border-brand-100">
+                  <p className="text-[10px] font-bold text-slate-400">رقم الهاتف المرتبط:</p>
+                  <div className="flex items-center justify-between gap-1 mt-0.5">
+                    <span className="font-black text-slate-800 text-sm" dir="ltr">01550356806</span>
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-brand-600 hover:text-brand-800"
+                      onClick={() => handleCopy('01550356806', 'رقم الهاتف')}
+                    >
+                      نسخ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  <button className="btn btn-primary w-full" disabled={busy}>
-                    {busy ? 'جاري الإرسال…' : 'إرسال للمراجعة'}
+            <a
+              href="https://ipn.eg/S/elmo7eb/instapay/1aki2O"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary mt-4 w-full py-2.5 text-center text-xs font-black shadow-md shadow-brand-700/20"
+            >
+              فتح رابط إنستا باي المباشر ↗
+            </a>
+          </article>
+
+          {/* Vodafone Cash */}
+          <article className="flex flex-col justify-between rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🔴</span>
+                <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-black text-white">فودافون كاش</span>
+              </div>
+              <h3 className="mt-3 text-base font-black text-night">Vodafone Cash</h3>
+              <p className="mt-1 text-xs text-slate-600">تحويل كاش من أي محفظة فودافون.</p>
+
+              <div className="mt-4 rounded-xl bg-white p-3 border border-rose-100">
+                <p className="text-[10px] font-bold text-slate-400">رقم المحفظة المستلمة:</p>
+                <div className="flex items-center justify-between gap-1 mt-1">
+                  <span className="font-black text-rose-700 text-base" dir="ltr">01550356806</span>
+                  <button
+                    type="button"
+                    className="text-xs font-bold text-rose-600 hover:text-rose-800"
+                    onClick={() => handleCopy('01550356806', 'رقم فودافون كاش')}
+                  >
+                    نسخ الرقم
                   </button>
                 </div>
-              )}
-            </form>
+              </div>
+            </div>
+            <p className="mt-4 text-[11px] text-slate-500">بعد التحويل، احتفظ بلقطة الشاشة (اسكرين) لإرفاقها بالطلب.</p>
+          </article>
 
-            <div className="card overflow-hidden">
-              <div className="border-b border-slate-100 bg-night p-5 text-white">
-                <p className="text-sm font-bold text-sky-300">خطوات بسيطة</p>
-                <h2 className="mt-1 text-xl font-black">ادفع، صوّر، واستنى التأكيد</h2>
+          {/* Orange Cash */}
+          <article className="flex flex-col justify-between rounded-2xl border border-orange-200 bg-orange-50/50 p-5">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🟠</span>
+                <span className="rounded-full bg-orange-600 px-2.5 py-0.5 text-[10px] font-black text-white">أورنج كاش</span>
               </div>
-              <div className="space-y-5 p-5">
-                <Step number="01" title="اختار وسيلة الدفع" text="التعليمات والحساب المستلم بيظهروا بمجرد الاختيار." />
-                <Step number="02" title="حوّل المبلغ" text="استخدم الرقم الظاهر واحتفظ بصورة الإيصال." />
-                <Step number="03" title="ارفع الصورة" text="الإدارة تراجعها وتبعتلك إشعار بالقرار." />
+              <h3 className="mt-3 text-base font-black text-night">Orange Cash</h3>
+              <p className="mt-1 text-xs text-slate-600">تحويل كاش من أي محفظة أورنج.</p>
+
+              <div className="mt-4 rounded-xl bg-white p-3 border border-orange-100">
+                <p className="text-[10px] font-bold text-slate-400">رقم المحفظة المستلمة:</p>
+                <div className="flex items-center justify-between gap-1 mt-1">
+                  <span className="font-black text-orange-700 text-base" dir="ltr">01550356806</span>
+                  <button
+                    type="button"
+                    className="text-xs font-bold text-orange-600 hover:text-orange-800"
+                    onClick={() => handleCopy('01550356806', 'رقم أورنج كاش')}
+                  >
+                    نسخ الرقم
+                  </button>
+                </div>
               </div>
-              <div className="mx-5 mb-5 rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">
-                مسموح PNG وJPG وWebP فقط، وحجم الصورة الأقصى 5MB.
+            </div>
+            <p className="mt-4 text-[11px] text-slate-500">بعد التحويل، احتفظ بلقطة الشاشة (اسكرين) لإرفاقها بالطلب.</p>
+          </article>
+        </div>
+      </section>
+
+      {/* Success Notification Banner after submission */}
+      {lastSubmitted && (
+        <div className="rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-5 text-emerald-900 shadow-sm animate-fade-in">
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-600 text-xl text-white">✓</div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black">تم استلام طلب الدفع بنجاح!</h3>
+              <p className="text-xs text-emerald-800">طلبك الآن في حالة <span className="font-bold underline">قيد المراجعة</span> من قبل الإدارة. سيتم تفعيل الباقة وإضافة نقاط الولاء فور التأكيد.</p>
+              <div className="mt-3 flex flex-wrap gap-4 text-xs font-bold text-emerald-900 bg-white/70 p-3 rounded-xl">
+                <div>المبلغ المطلوب: {fmtMoney(lastSubmitted.amount)}</div>
+                <div>رقم المرجع: <span className="font-mono" dir="ltr">{lastSubmitted.id.slice(-8)}</span></div>
+                <div>تاريخ الطلب: {fmtDateTime(lastSubmitted.createdAt)}</div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Payment History */}
+      {/* Main Upload Section */}
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
+        <form className="card p-5 sm:p-6" onSubmit={submitManualPayment}>
+          <div className="mb-5">
+            <h2 className="text-lg font-black text-night">إرسال إثبات الدفع</h2>
+            <p className="mt-1 text-xs text-slate-500">اختر الاشتراك وطريقة الدفع ثم ارفع لقطة الشاشة للتأكيد.</p>
+          </div>
+
+          {payableSubs.length === 0 ? (
+            <div className="rounded-2xl bg-slate-50 p-6 text-center">
+              <p className="font-bold text-slate-600">لا يوجد اشتراك بانتظار الدفع حالياً.</p>
+              <Link to="/providers" className="mt-3 inline-block rounded-xl bg-brand-600 px-4 py-2 text-xs font-black text-white hover:bg-brand-700">
+                استعراض الباقات المتاحة
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Step 1: Select Subscription */}
+              <Field label="1. اختر الاشتراك المطلوب سداده" required>
+                <select
+                  className="input"
+                  value={subId}
+                  onChange={(e) => setSubId(e.target.value)}
+                  required
+                >
+                  <option value="">اختر الاشتراك…</option>
+                  {payableSubs.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.provider?.name ?? 'شركة'} — {s.package?.name} ({fmtMoney(s.package?.price)}) · رقم الخط: {s.phoneNumber}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {/* Package Summary if Selected */}
+              {selectedSub?.package && (
+                <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-500">الباقة المختارة:</p>
+                      <p className="text-base font-black text-night">{selectedSub.package.name}</p>
+                      <p className="text-xs text-slate-600 mt-0.5">رقم الخط: <span dir="ltr" className="font-mono font-bold">{selectedSub.phoneNumber}</span></p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-slate-500">المبلغ الإجمالي:</p>
+                      <p className="text-2xl font-black text-brand-700">{fmtMoney(selectedSub.package.price)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Payment Method */}
+              <Field label="2. اختر طريقة التحويل المستخدمة" required>
+                <select
+                  className="input"
+                  value={methodId}
+                  onChange={(e) => setMethodId(e.target.value)}
+                  required
+                >
+                  <option value="">اختر وسيلة الدفع…</option>
+                  {methods.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </Field>
+
+              {/* Step 3: From Phone (Optional) */}
+              <Field label="3. رقم الهاتف المحول منه (اختياري)">
+                <input
+                  className="input"
+                  dir="ltr"
+                  value={fromPhone}
+                  onChange={(e) => setFromPhone(e.target.value)}
+                  pattern="01[0-9]{9}"
+                  placeholder="01xxxxxxxxx"
+                />
+              </Field>
+
+              {/* Step 4: Screenshot Upload & Preview */}
+              <Field label="4. صورة إيصال التحويل (Screenshot)" required>
+                <input
+                  key={fileInputKey}
+                  className="input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  required
+                />
+              </Field>
+
+              {/* Image Preview */}
+              {previewUrl && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold text-slate-500 mb-2">معاينة الإيصال المرفق:</p>
+                  <img
+                    src={previewUrl}
+                    alt="معاينة إيصال الدفع"
+                    className="max-h-56 w-auto rounded-xl border border-slate-200 object-contain mx-auto"
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn btn-primary w-full py-3.5 text-base font-black shadow-lg shadow-brand-700/20"
+                disabled={busy || !subId || !methodId || !file}
+              >
+                {busy ? 'جاري رفع الإيصال والإرسال…' : 'إرسال إثبات الدفع للمراجعة ←'}
+              </button>
+            </div>
+          )}
+        </form>
+
+        {/* Steps Guide Card */}
+        <div className="card overflow-hidden">
+          <div className="border-b border-slate-100 bg-night p-5 text-white">
+            <p className="text-sm font-bold text-sky-300">خطوات تفعيل الاشتراك</p>
+            <h2 className="mt-1 text-xl font-black">سهل، سريع، ومضمون</h2>
+          </div>
+          <div className="space-y-5 p-5">
+            <Step number="01" title="اختر الباقة وأنشئ الطلب" text="اختر الباقة المناسبة من كتالوج الباقات ليتم تسجيل طلب الاشتراك." />
+            <Step number="02" title="حوّل المبلغ المطلوب" text="استخدم إنستا باي (elmo7eb@instapay) أو محافظ الكاش على الرقم 01550356806." />
+            <Step number="03" title="ارفع صورة الإيصال" text="ارفع لقطة الشاشة من النموذج وسيصل طلبك فوراً لمراجعة الإدارة." />
+            <Step number="04" title="تفعيل فوري ونقاط ولاء" text="بمجرد مراجعة الإيصال يتم تفعيل خطك وإضافة نقاط الولاء لرصيدك ⭐" />
+          </div>
+          <div className="mx-5 mb-5 rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">
+            📌 يُقبل صور بصيغة PNG أو JPG أو WebP بحجم أقصى 5 ميجابايت.
+          </div>
+        </div>
+      </div>
+
+      {/* Payment History List */}
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-100 p-5">
           <div>
-            <h2 className="text-lg font-black text-night">سجل المدفوعات</h2>
-            <p className="mt-1 text-xs text-slate-500">كل طلبات الدفع السابقة الإلكترونية واليدوية محفوظة.</p>
+            <h2 className="text-lg font-black text-night">سجل طلبات الدفع</h2>
+            <p className="mt-1 text-xs text-slate-500">متابعة حالة جميع طلبات الدفع السابقة.</p>
           </div>
-          <span className="badge badge-amber">{pendingCount} قيد المراجعة</span>
+          <span className="badge badge-amber font-bold">{pendingCount} قيد المراجعة</span>
         </div>
+
         {payments.length === 0 ? (
-          <Empty title="لا توجد مدفوعات بعد" />
+          <Empty title="لا توجد مدفوعات مسجلة بعد" hint="عند إرسال أي إثبات تحويل سيظهر هنا مع حالته." />
         ) : (
           <div className="divide-y divide-slate-100">
-            {payments.map((payment) => (
-              <div key={payment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 font-black text-brand-700">
-                    {payment.paymentChannel === 'PAYMOB' ? '💳' : '📱'}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-black text-night">{payment.subscription?.package?.name ?? 'اشتراك'}</p>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${payment.paymentChannel === 'PAYMOB' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-700'}`}>
-                        {payment.paymentChannel === 'PAYMOB' ? 'Paymob أونلاين' : 'تحويل يدوي'}
-                      </span>
+            {payments.map((payment) => {
+              const isApproved = payment.status === 'APPROVED' || payment.status === 'PAID';
+              const isPending = payment.status === 'PENDING';
+              return (
+                <div key={payment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`grid h-11 w-11 place-items-center rounded-2xl font-black text-lg ${isApproved ? 'bg-emerald-50 text-emerald-700' : isPending ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                      {isApproved ? '✓' : isPending ? '◷' : '✕'}
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {payment.paymentMethod?.name ?? (payment.paymentChannel === 'PAYMOB' ? 'بوابة Paymob' : 'تحويل مباشر')} · {fmtDateTime(payment.createdAt)}
-                    </p>
+                    <div>
+                      <p className="font-black text-night text-base">
+                        {payment.subscription?.package?.name ?? 'اشتراك باقة'}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {payment.paymentMethod?.name ?? 'تحويل يدوي'} · {fmtDateTime(payment.createdAt)}
+                      </p>
+                      {payment.screenshotUrl && (
+                        <a
+                          href={payment.screenshotUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-block text-xs font-bold text-brand-600 hover:underline"
+                        >
+                          عرض صورة الإيصال المرفقة ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 sm:justify-end">
+                    <p className="font-black text-brand-700 text-lg">{fmtMoney(payment.amount)}</p>
+                    <Badge status={payment.status} />
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-4 sm:justify-end">
-                  <p className="font-black text-brand-700">{fmtMoney(payment.amount)}</p>
-                  <Badge status={payment.status} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -386,10 +449,10 @@ export function MyPayments() {
 function Step({ number, title, text }: { number: string; title: string; text: string }) {
   return (
     <div className="flex gap-3">
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-xs font-black text-white">{number}</div>
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-600 text-xs font-black text-white">{number}</div>
       <div>
-        <p className="font-black text-night">{title}</p>
-        <p className="mt-1 text-xs leading-6 text-slate-500">{text}</p>
+        <p className="font-black text-night text-sm">{title}</p>
+        <p className="mt-0.5 text-xs leading-5 text-slate-500">{text}</p>
       </div>
     </div>
   );
