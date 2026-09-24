@@ -57,7 +57,6 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
     </div>
   );
 }
-
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
