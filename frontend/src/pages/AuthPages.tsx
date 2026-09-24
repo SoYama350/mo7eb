@@ -118,68 +118,6 @@ export function LoginPage() {
   );
 }
 
-
-export function LoginPage() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const toast = useToast();
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setErr('');
-    setBusy(true);
-    try {
-      const user = await login(identifier, password);
-      navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'MERCHANT' ? '/merchant' : '/', { replace: true });
-    } catch (ex: any) {
-      setErr(ex?.message ?? 'فشل تسجيل الدخول');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Shell title="تسجيل الدخول" subtitle="أهلاً بعودتك — سجّل للوصول إلى لوحتك">
-      <form onSubmit={onSubmit} className="space-y-4">
-        {err && <div className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
-        <Field label="البريد الإلكتروني أو رقم الموبايل" required>
-          <input
-            name="identifier"
-            dir="ltr"
-            className="input"
-            placeholder="name@example.com أو 01xxxxxxxxx"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            required
-          />
-        </Field>
-        <Field label="كلمة المرور" required>
-          <input
-            name="password"
-            type="password"
-            dir="ltr"
-            className="input"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </Field>
-        <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول'}</button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-slate-500">
-        حساب جديد؟ <Link to="/register" className="font-black text-brand-600">سجّل الآن</Link>
-      </p>
-      <p className="mt-3 text-center text-sm"><Link to="/forgot-password" className="font-black text-brand-600">نسيت كلمة المرور؟</Link></p>
-    </Shell>
-  );
-}
-
 export function ForgotPasswordPage() {
   const toast = useToast();
   const [email, setEmail] = useState('');
