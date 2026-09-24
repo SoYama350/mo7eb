@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 const BRAND_GRADIENT = 'bg-gradient-to-br from-brand-700 via-brand-600 to-sky-500';
 const HERO_BACKGROUND = {
   backgroundImage:
-    "linear-gradient(135deg, rgba(2, 29, 53, 0.78), rgba(12, 99, 182, 0.55)), url('/auth-hero.png')",
+    "linear-gradient(135deg, rgba(2, 29, 53, 0.78), rgba(12, 99, 182,)), url('/auth-hero.png')",
   backgroundSize: 'cover',
   backgroundPosition: 'center',
 };
