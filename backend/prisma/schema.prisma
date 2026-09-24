@@ -258,3 +258,4 @@ model PointTransaction {
   reason    String
   createdAt DateTime @default(now())
 }
+

@@ -6,11 +6,35 @@ import { authApi } from '../services/api';
 import { supabase } from '../lib/supabase';
 
 const BRAND_GRADIENT = 'bg-gradient-to-br from-brand-700 via-brand-600 to-sky-500';
+const HERO_BACKGROUND = {
+  backgroundImage:
+    "linear-gradient(135deg, rgba(2, 29, 53, 0.78), rgba(12, 99, 182, 0.55)), url('/auth-hero.png')",
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+};
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-slate-100">
-      <div className="flex w-full items-center justify-center p-4 sm:p-6 lg:w-1/2">
+    <div className="flex min-h-screen">
+      <div className={`hidden w-1/2 flex-col justify-between p-10 text-white lg:flex ${BRAND_GRADIENT}`} style={HERO_BACKGROUND}>
+        <div className="flex items-center gap-3">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-2xl backdrop-blur">📡</div>
+          <div>
+            <p className="text-xl font-black">محب نت</p>
+            <p className="text-sm text-white/70">منصة إدارة الاشتراكات</p>
+          </div>
+        </div>
+        <div>
+          <h1 className="text-4xl font-black leading-tight">اشتراكات خطوط الموبايل<br />إدارة كاملة في مكان واحد</h1>
+          <p className="mt-4 max-w-md text-white/80">منصة متكاملة للمزودين والتجار والعملاء — متابعة الاشتراكات، الدفع، المراجعة، والإدارة من لوحة واحدة.</p>
+        </div>
+        <div className="flex gap-8">
+          <div><p className="text-3xl font-black">+20</p><p className="text-sm text-white/70">مزود خدمة</p></div>
+          <div><p className="text-3xl font-black">+50</p><p className="text-sm text-white/70">باقة متنوعة</p></div>
+          <div><p className="text-3xl font-black">24/7</p><p className="text-sm text-white/70">متابعة لحظية</p></div>
+        </div>
+      </div>
+      <div className="flex w-full items-center justify-center p-6 lg:w-1/2">
         <div className="w-full max-w-md fade-up">
           <div className="mb-8 text-center lg:hidden">
             <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-600 to-sky-500 text-2xl text-white shadow-lg">📡</div>
@@ -127,7 +151,7 @@ export function ForgotPasswordPage() {
   return <Shell title="استعادة كلمة المرور" subtitle="هنبعت رابط آمن على بريدك الإلكتروني">
     <form onSubmit={onSubmit} className="space-y-4">
       <Field label="البريد الإلكتروني" required><input type="email" name="email" className="input" dir="ltr" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required /></Field>
-      {sent && <p className="rounded-xl bg-brand-50 p-3 text-sm leading-6 text-brand-800">راجع بريدك واضغط رابط الاستعادة. قد يصل إلى الرسائل غير المرغوب فيها.</p>}
+      {sent && <p className="rounded-xl bg-brand-50 p-3 text-sm leading-6 text-brand-800">راجع بريدك واضغط رابط الاستعادة. قد يصل إلى الرسائل غير المرئية في بعض الحالات.</p>}
       <button className="btn btn-primary w-full py-3" disabled={busy}>{busy ? 'جاري الإرسال…' : 'إرسال رابط الاستعادة'}</button>
     </form>
     <p className="mt-3 text-center text-sm text-slate-500"><Link to="/login" className="font-black text-brand-600">العودة لتسجيل الدخول</Link></p>
