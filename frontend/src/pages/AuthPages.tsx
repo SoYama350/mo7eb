@@ -45,6 +45,33 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
           {children}
         </div>
       </div>
+
+      <div
+        className="relative hidden h-screen flex-1 overflow-hidden lg:flex"
+        style={{
+          backgroundImage: "url('/auth-hero.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="absolute inset-0 bg-slate-950/20" />
+        <div className="relative z-10 flex h-full w-full flex-col justify-between p-10 text-white">
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-2xl backdrop-blur">📡</div>
+            <div>
+              <p className="text-xl font-black">محب نت</p>
+              <p className="text-sm text-white/70">منصة إدارة الاشتراكات</p>
+            </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div><p className="text-3xl font-black">+20</p><p className="text-sm text-white/70">مزود خدمة</p></div>
+            <div><p className="text-3xl font-black">+50</p><p className="text-sm text-white/70">باقة متنوعة</p></div>
+            <div><p className="text-3xl font-black">24/7</p><p className="text-sm text-white/70">متابعة لحظية</p></div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
