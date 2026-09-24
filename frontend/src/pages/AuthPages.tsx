@@ -9,26 +9,8 @@ const BRAND_GRADIENT = 'bg-gradient-to-br from-brand-700 via-brand-600 to-sky-50
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <div className={`hidden w-1/2 flex-col justify-between p-10 text-white lg:flex ${BRAND_GRADIENT}`}>
-        <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-2xl backdrop-blur">📡</div>
-          <div>
-            <p className="text-xl font-black">محب نت</p>
-            <p className="text-sm text-white/70">منصة إدارة الاشتراكات</p>
-          </div>
-        </div>
-        <div>
-          <h1 className="text-4xl font-black leading-tight">اشتراكات خطوط الموبايل<br />إدارة كاملة في مكان واحد</h1>
-          <p className="mt-4 max-w-md text-white/80">منصة متكاملة للمزودين والتجار والعملاء — متابعة الاشتراكات، الدفع، المراجعة، والتجديد التلقائي.</p>
-        </div>
-        <div className="flex gap-8">
-          <div><p className="text-3xl font-black">+20</p><p className="text-sm text-white/70">مزود خدمة</p></div>
-          <div><p className="text-3xl font-black">+50</p><p className="text-sm text-white/70">باقة متنوعة</p></div>
-          <div><p className="text-3xl font-black">24/7</p><p className="text-sm text-white/70">متابعة لحظية</p></div>
-        </div>
-      </div>
-      <div className="flex w-full items-center justify-center p-6 lg:w-1/2">
+    <div className="flex min-h-screen bg-slate-100">
+      <div className="flex w-full items-center justify-center p-4 sm:p-6 lg:w-1/2">
         <div className="w-full max-w-md fade-up">
           <div className="mb-8 text-center lg:hidden">
             <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-600 to-sky-500 text-2xl text-white shadow-lg">📡</div>
@@ -37,6 +19,33 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
           <h2 className="mb-1 text-2xl font-black text-night">{title}</h2>
           <p className="mb-6 text-sm text-slate-500">{subtitle}</p>
           {children}
+        </div>
+      </div>
+
+      <div
+        className="relative hidden h-screen flex-1 overflow-hidden lg:flex"
+        style={{
+          backgroundImage: "url('/auth-hero.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="absolute inset-0 bg-slate-950/20" />
+        <div className="relative z-10 flex h-full w-full flex-col justify-between p-10 text-white">
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-2xl backdrop-blur">📡</div>
+            <div>
+              <p className="text-xl font-black">محب نت</p>
+              <p className="text-sm text-white/70">منصة إدارة الاشتراكات</p>
+            </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div><p className="text-3xl font-black">+20</p><p className="text-sm text-white/70">مزود خدمة</p></div>
+            <div><p className="text-3xl font-black">+50</p><p className="text-sm text-white/70">باقة متنوعة</p></div>
+            <div><p className="text-3xl font-black">24/7</p><p className="text-sm text-white/70">متابعة لحظية</p></div>
+          </div>
         </div>
       </div>
     </div>
